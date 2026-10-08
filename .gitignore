@@ -1,0 +1,24 @@
+*.iml
+.gradle
+/local.properties
+local.properties
+.idea/
+.vscode/
+.antigravitycli/
+.kilo/
+plans/
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+*.jks
+*.keystore
+.wrangler/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
