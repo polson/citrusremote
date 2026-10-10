@@ -87,6 +87,22 @@ def run_coroutine(coro):
     return future.result()
 
 
+def _error_json(message):
+    return json.dumps({"status": "error", "message": str(message)})
+
+
+def _success_json(**kwargs):
+    return json.dumps({"status": "success", **kwargs})
+
+
+def _run_json(coro):
+    try:
+        return run_coroutine(coro)
+    except Exception as e:
+        return _error_json(e)
+
+
+
 class _PairingSession:
     def __init__(self, handler, protocol, ip_address, is_mock):
         self.handler = handler
@@ -366,15 +382,13 @@ async def _async_initiate_pairing(ip_address):
     await _reset_pairing_state(close_handler=True)
 
     atvs = await _discover_configuration(ip_address)
-
     if not atvs:
-        return json.dumps({"status": "error", "message": "Apple TV not found"})
+        return _error_json("Apple TV not found")
 
     conf = atvs[0]
-
     protocol, error_message = _select_pairing_protocol(conf)
     if protocol is None:
-        return json.dumps({"status": "error", "message": error_message})
+        return _error_json(error_message)
 
     try:
         handler = await pyatv.pair(conf, protocol, loop)
@@ -385,23 +399,13 @@ async def _async_initiate_pairing(ip_address):
             ip_address=ip_address,
             is_mock=_is_mock_device(ip_address),
         )
-        return json.dumps(
-            {
-                "status": "success",
-                "message": f"Pairing initiated via {protocol.name}. Enter PIN.",
-            }
-        )
+        return _success_json(message=f"Pairing initiated via {protocol.name}. Enter PIN.")
     except asyncio.TimeoutError:
         await _reset_pairing_state(close_handler=True)
-        return json.dumps(
-            {
-                "status": "error",
-                "message": "Pairing initiation timed out. Please try again.",
-            }
-        )
+        return _error_json("Pairing initiation timed out. Please try again.")
     except Exception as e:
         await _reset_pairing_state(close_handler=True)
-        return json.dumps({"status": "error", "message": str(e)})
+        return _error_json(e)
 
 
 def initiate_pairing(ip_address):
@@ -409,25 +413,17 @@ def initiate_pairing(ip_address):
     Initiates pairing with the Apple TV.
     Returns JSON describing success or error.
     """
-    try:
-        return run_coroutine(_async_initiate_pairing(ip_address))
-    except Exception as e:
-        return json.dumps({"status": "error", "message": str(e)})
+    return _run_json(_async_initiate_pairing(ip_address))
 
 
 async def _async_finish_pairing(device_ip, pin_code):
     global _active_session
     if not _active_session:
-        return json.dumps({"status": "error", "message": "No active pairing session"})
+        return _error_json("No active pairing session")
     if _active_session.ip_address != device_ip:
-        return json.dumps(
-            {
-                "status": "error",
-                "message": (
-                    "Pairing session belongs to a different device. "
-                    "Restart pairing for the selected Apple TV."
-                ),
-            }
+        return _error_json(
+            "Pairing session belongs to a different device. "
+            "Restart pairing for the selected Apple TV."
         )
 
     try:
@@ -445,32 +441,16 @@ async def _async_finish_pairing(device_ip, pin_code):
             and not _active_session.is_mock
         ):
             await _reset_pairing_state(close_handler=True)
-            return json.dumps(
-                {
-                    "status": "error",
-                    "message": (
-                        "Mock credentials were returned for a real Apple TV pairing session. "
-                        "Restart pairing and try again."
-                    ),
-                }
+            return _error_json(
+                "Mock credentials were returned for a real Apple TV pairing session. "
+                "Restart pairing and try again."
             )
 
         await _reset_pairing_state(close_handler=False)
-
-        return json.dumps(
-            {
-                "status": "success",
-                "credentials": _build_credentials_payload(credentials, protocol),
-            }
-        )
+        return _success_json(credentials=_build_credentials_payload(credentials, protocol))
     except asyncio.TimeoutError:
         await _reset_pairing_state(close_handler=True)
-        return json.dumps(
-            {
-                "status": "error",
-                "message": "Pairing completion timed out. Please check PIN and try again.",
-            }
-        )
+        return _error_json("Pairing completion timed out. Please check PIN and try again.")
     except Exception as e:
         await _reset_pairing_state(close_handler=True)
         _LOGGER.exception("Pairing error: %s", e)
@@ -489,7 +469,7 @@ async def _async_finish_pairing(device_ip, pin_code):
                 "The device crypto backend rejected ChaCha20-Poly1305. "
                 "Try restarting the app and Apple TV, then pair again."
             )
-        return json.dumps({"status": "error", "message": error_msg})
+        return _error_json(error_msg)
 
 
 def finish_pairing(device_ip, pin_code):
@@ -497,50 +477,37 @@ def finish_pairing(device_ip, pin_code):
     Finishes the pairing process with the given PIN.
     Returns JSON containing the credentials if successful.
     """
-    try:
-        return run_coroutine(_async_finish_pairing(device_ip, pin_code))
-    except Exception as e:
-        return json.dumps({"status": "error", "message": str(e)})
+    return _run_json(_async_finish_pairing(device_ip, pin_code))
 
 
 async def _async_cancel_pairing():
     await _reset_pairing_state(close_handler=True)
-    return json.dumps({"status": "success", "message": "Pairing cancelled"})
+    return _success_json(message="Pairing cancelled")
 
 
 def cancel_pairing():
     """
     Cancels the pairing process.
     """
-    try:
-        return run_coroutine(_async_cancel_pairing())
-    except Exception as e:
-        return json.dumps({"status": "error", "message": str(e)})
+    return _run_json(_async_cancel_pairing())
 
 
 async def _async_validate_credentials(ip_address, credentials_json=""):
     loop = asyncio.get_running_loop()
     conf, error = await _build_configuration(ip_address, credentials_json)
     if error:
-        return json.dumps({"status": "error", "message": error})
+        return _error_json(error)
 
     atv = await pyatv.connect(conf, loop)
     try:
-        return json.dumps(
-            {
-                "status": "success",
-                "message": f"Validated credentials for {conf.name}",
-            }
-        )
+        return _success_json(message=f"Validated credentials for {conf.name}")
     finally:
         atv.close()
 
 
 def validate_credentials(ip_address="", credentials_json=""):
-    try:
-        return run_coroutine(_async_validate_credentials(ip_address, credentials_json))
-    except Exception as e:
-        return json.dumps({"status": "error", "message": str(e)})
+    return _run_json(_async_validate_credentials(ip_address, credentials_json))
+
 
 
 # Command name -> (pyatv remote_control method, feature name or None)

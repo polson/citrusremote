@@ -86,29 +86,25 @@ async def _async_submit_keyboard_text(ip_address, credentials_json="", text=""):
     return await _with_keyboard(ip_address, credentials_json, submit_text)
 
 
-def get_keyboard_text(ip_address="", credentials_json=""):
+def _safe_run(coro):
     try:
-        return run_coroutine(_async_get_keyboard_text(ip_address, credentials_json))
+        return run_coroutine(coro)
     except Exception as ex:
         return f"Error: {ex}"
+
+
+def get_keyboard_text(ip_address="", credentials_json=""):
+    return _safe_run(_async_get_keyboard_text(ip_address, credentials_json))
 
 
 def set_keyboard_text(ip_address="", credentials_json="", text=""):
-    try:
-        return run_coroutine(_async_set_keyboard_text(ip_address, credentials_json, text))
-    except Exception as ex:
-        return f"Error: {ex}"
+    return _safe_run(_async_set_keyboard_text(ip_address, credentials_json, text))
 
 
 def clear_keyboard_text(ip_address="", credentials_json=""):
-    try:
-        return run_coroutine(_async_clear_keyboard_text(ip_address, credentials_json))
-    except Exception as ex:
-        return f"Error: {ex}"
+    return _safe_run(_async_clear_keyboard_text(ip_address, credentials_json))
 
 
 def submit_keyboard_text(ip_address="", credentials_json="", text=""):
-    try:
-        return run_coroutine(_async_submit_keyboard_text(ip_address, credentials_json, text))
-    except Exception as ex:
-        return f"Error: {ex}"
+    return _safe_run(_async_submit_keyboard_text(ip_address, credentials_json, text))
+
