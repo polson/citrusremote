@@ -11,10 +11,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-sealed class DiscoveryUiState {
-    data object Loading : DiscoveryUiState()
-    data class Success(val devices: List<AppleTvDevice>) : DiscoveryUiState()
-    data class Error(val message: String) : DiscoveryUiState()
+sealed interface DiscoveryUiState {
+    data object Loading : DiscoveryUiState
+    data class Success(val devices: List<AppleTvDevice>) : DiscoveryUiState
+    data class Error(val message: String) : DiscoveryUiState
 }
 
 @HiltViewModel

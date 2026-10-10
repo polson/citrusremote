@@ -12,18 +12,18 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-sealed class PairingUiState {
-    data object Idle : PairingUiState()
-    data object Initiating : PairingUiState()
-    data object WaitingForPin : PairingUiState()
-    data object Pairing : PairingUiState()
-    data object Success : PairingUiState()
+sealed interface PairingUiState {
+    data object Idle : PairingUiState
+    data object Initiating : PairingUiState
+    data object WaitingForPin : PairingUiState
+    data object Pairing : PairingUiState
+    data object Success : PairingUiState
     data class Error(
         val message: String,
         val canRetryInitiating: Boolean = false,
         val isBackOff: Boolean = false,
         val backOffSeconds: Long? = null
-    ) : PairingUiState()
+    ) : PairingUiState
 }
 
 @HiltViewModel

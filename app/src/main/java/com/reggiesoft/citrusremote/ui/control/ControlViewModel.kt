@@ -13,11 +13,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-sealed class ControlUiState {
-    data object Ready : ControlUiState()
-    data object Connecting : ControlUiState()
-    data class Result(val message: String) : ControlUiState()
-    data class Error(val message: String) : ControlUiState()
+sealed interface ControlUiState {
+    data object Ready : ControlUiState
+    data object Connecting : ControlUiState
+    data class Result(val message: String) : ControlUiState
+    data class Error(val message: String) : ControlUiState
 }
 
 @HiltViewModel
