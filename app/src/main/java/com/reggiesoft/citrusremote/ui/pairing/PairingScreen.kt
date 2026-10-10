@@ -1,12 +1,7 @@
 package com.reggiesoft.citrusremote.ui.pairing
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -30,11 +25,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Lock
@@ -43,37 +33,44 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.TooltipBox
-import androidx.compose.material3.TooltipDefaults
-import androidx.compose.material3.TooltipAnchorPosition
-import androidx.compose.material3.RichTooltip
-import androidx.compose.material3.rememberTooltipState
-import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RichTooltip
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TooltipAnchorPosition
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-@OptIn(ExperimentalMaterial3Api::class)
+import com.reggiesoft.citrusremote.ui.theme.CitrusRemoteTheme
+import kotlinx.coroutines.launch
+
 @Composable
 fun PairingScreen(
     deviceIp: String,
@@ -84,14 +81,9 @@ fun PairingScreen(
     onBack: () -> Unit
 ) {
     var pinCode by remember { mutableStateOf("") }
-    val focusRequester = remember { FocusRequester() }
-    val keyboardController = LocalSoftwareKeyboardController.current
-    val tooltipState = rememberTooltipState(isPersistent = true)
-    val scope = rememberCoroutineScope()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val errorState = uiState as? PairingUiState.Error
     val remainingBackOffSeconds = errorState?.takeIf { it.isBackOff }?.backOffSeconds
-    val backOffDialogMessage = errorState?.takeIf { it.isBackOff }?.message.orEmpty()
 
     LaunchedEffect(deviceIp) {
         viewModel.initiatePairing(deviceIp, deviceName)
@@ -101,7 +93,51 @@ fun PairingScreen(
         if (uiState is PairingUiState.Success) {
             onPairSuccess()
         }
+    }
 
+    PairingScreenContent(
+        deviceName = deviceName,
+        uiState = uiState,
+        pinCode = pinCode,
+        remainingBackOffSeconds = remainingBackOffSeconds,
+        onPinChange = { pinCode = it },
+        onSubmitPin = { pin -> viewModel.finishPairing(pin) },
+        onRetryInitiate = {
+            pinCode = ""
+            viewModel.initiatePairing(deviceIp, deviceName)
+        },
+        onBack = {
+            viewModel.cancelPairing()
+            onBack()
+        },
+        modifier = modifier
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun PairingScreenContent(
+    deviceName: String,
+    uiState: PairingUiState,
+    pinCode: String,
+    remainingBackOffSeconds: Long?,
+    modifier: Modifier = Modifier,
+    onPinChange: (String) -> Unit,
+    onSubmitPin: (String) -> Unit,
+    onRetryInitiate: () -> Unit,
+    onBack: () -> Unit
+) {
+    val focusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val tooltipState = rememberTooltipState(isPersistent = true)
+    val scope = rememberCoroutineScope()
+
+    val errorState = uiState as? PairingUiState.Error
+    val isLocked = (remainingBackOffSeconds ?: 0L) > 0L
+    val isPairingLocked = errorState?.isBackOff == true && isLocked
+    val backOffDialogMessage = errorState?.takeIf { it.isBackOff }?.message.orEmpty()
+
+    LaunchedEffect(uiState) {
         if (uiState is PairingUiState.WaitingForPin) {
             focusRequester.requestFocus()
             keyboardController?.show()
@@ -114,10 +150,7 @@ fun PairingScreen(
             TopAppBar(
                 title = { Text("Pairing") },
                 navigationIcon = {
-                    IconButton(onClick = {
-                        viewModel.cancelPairing()
-                        onBack()
-                    }) {
+                    IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back"
@@ -171,9 +204,9 @@ fun PairingScreen(
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(48.dp)
                     )
-                    
+
                     Spacer(modifier = Modifier.height(16.dp))
-                    
+
                     Text(
                         text = deviceName,
                         style = MaterialTheme.typography.headlineSmall,
@@ -181,21 +214,24 @@ fun PairingScreen(
                         color = MaterialTheme.colorScheme.onSurface,
                         textAlign = TextAlign.Center
                     )
-                    
+
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    val statusText = when (val state = uiState) {
+                    val statusText = when (uiState) {
+                        is PairingUiState.Idle -> ""
                         is PairingUiState.Initiating -> "Connecting to device..."
                         is PairingUiState.WaitingForPin -> "Enter the PIN displayed on your TV"
+                        is PairingUiState.Pairing -> "Verifying PIN..."
+                        is PairingUiState.Success -> "Success!"
                         is PairingUiState.Error -> {
                             when {
-                                state.isBackOff && (remainingBackOffSeconds ?: 0L) > 0L -> {
+                                uiState.isBackOff && isLocked -> {
                                     "Pairing locked for ${formatBackOffDuration(remainingBackOffSeconds ?: 0L)}"
                                 }
-                                state.isBackOff -> {
+                                uiState.isBackOff -> {
                                     "Pairing lock expired. Retry the connection."
                                 }
-                                state.canRetryInitiating -> {
+                                uiState.canRetryInitiating -> {
                                     "Pairing needs to be restarted"
                                 }
                                 else -> {
@@ -203,12 +239,8 @@ fun PairingScreen(
                                 }
                             }
                         }
-                        is PairingUiState.Pairing -> "Verifying PIN..."
-                        is PairingUiState.Success -> "Success!"
-                        else -> ""
                     }
-                    
-                    val isPairingLocked = statusText.contains("Pairing locked")
+
                     if (isPairingLocked) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -272,83 +304,25 @@ fun PairingScreen(
                             textAlign = TextAlign.Center
                         )
                     }
-                    
+
                     Spacer(modifier = Modifier.height(32.dp))
-                    
+
                     val isWorking = uiState is PairingUiState.Initiating || uiState is PairingUiState.Pairing
                     val hasError = uiState is PairingUiState.Error
-                    val isLocked = (remainingBackOffSeconds ?: 0L) > 0L
                     val isInputEnabled = uiState is PairingUiState.WaitingForPin && !isLocked
-                    
-                    BasicTextField(
-                        value = pinCode,
+
+                    PinInputBoxes(
+                        pinCode = pinCode,
+                        isInputEnabled = isInputEnabled,
+                        hasError = hasError,
+                        isBackOff = errorState?.isBackOff == true,
+                        focusRequester = focusRequester,
                         onValueChange = { newValue ->
                             val digitsOnly = newValue.filter { it.isDigit() }
                             if (digitsOnly.length <= 4) {
-                                pinCode = digitsOnly
+                                onPinChange(digitsOnly)
                                 if (digitsOnly.length == 4 && !isLocked) {
-                                    viewModel.finishPairing(digitsOnly)
-                                }
-                            }
-                        },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        enabled = isInputEnabled,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .focusRequester(focusRequester),
-                        decorationBox = { innerTextField ->
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable(
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        indication = null
-                                    ) {
-                                        if (isInputEnabled) {
-                                            focusRequester.requestFocus()
-                                            keyboardController?.show()
-                                        }
-                                    }
-                            ) {
-                                Box(modifier = Modifier.alpha(0f)) {
-                                    innerTextField()
-                                }
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    repeat(4) { index ->
-                                        val char = when {
-                                            index >= pinCode.length -> ""
-                                            else -> pinCode[index].toString()
-                                        }
-                                        val isFocused = index == pinCode.length && isInputEnabled
-                                        val showErrorBorder = hasError && (pinCode.length == 4 || errorState?.isBackOff == true)
-                                        val borderColor = when {
-                                            showErrorBorder -> MaterialTheme.colorScheme.error
-                                            isFocused -> MaterialTheme.colorScheme.primary
-                                            else -> MaterialTheme.colorScheme.outline
-                                        }
-
-                                        Box(
-                                            modifier = Modifier
-                                                .size(56.dp)
-                                                .border(
-                                                    width = if (isFocused) { 2.dp } else { 1.dp },
-                                                    color = borderColor,
-                                                    shape = RoundedCornerShape(12.dp)
-                                                ),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                text = char,
-                                                style = MaterialTheme.typography.headlineMedium,
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.onSurface
-                                            )
-                                        }
-                                    }
+                                    onSubmitPin(digitsOnly)
                                 }
                             }
                         }
@@ -383,7 +357,7 @@ fun PairingScreen(
                         } else {
                             val couldRetry = errorState?.canRetryInitiating == true
                             val canPair = uiState is PairingUiState.WaitingForPin
-                            
+
                             Column(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -391,10 +365,9 @@ fun PairingScreen(
                                 Button(
                                     onClick = {
                                         if (couldRetry) {
-                                            pinCode = ""
-                                            viewModel.initiatePairing(deviceIp, deviceName)
+                                            onRetryInitiate()
                                         } else if (canPair && pinCode.isNotEmpty()) {
-                                            viewModel.finishPairing(pinCode)
+                                            onSubmitPin(pinCode)
                                         }
                                     },
                                     modifier = Modifier
@@ -419,5 +392,98 @@ fun PairingScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun PinInputBoxes(
+    pinCode: String,
+    isInputEnabled: Boolean,
+    hasError: Boolean,
+    isBackOff: Boolean,
+    focusRequester: FocusRequester,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    BasicTextField(
+        value = pinCode,
+        onValueChange = onValueChange,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        enabled = isInputEnabled,
+        modifier = modifier
+            .fillMaxWidth()
+            .focusRequester(focusRequester),
+        decorationBox = { innerTextField ->
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        if (isInputEnabled) {
+                            focusRequester.requestFocus()
+                            keyboardController?.show()
+                        }
+                    }
+            ) {
+                Box(modifier = Modifier.alpha(0f)) {
+                    innerTextField()
+                }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    repeat(4) { index ->
+                        val char = if (index >= pinCode.length) { "" } else { pinCode[index].toString() }
+                        val isFocused = index == pinCode.length && isInputEnabled
+                        val showErrorBorder = hasError && (pinCode.length == 4 || isBackOff)
+                        val borderColor = when {
+                            showErrorBorder -> MaterialTheme.colorScheme.error
+                            isFocused -> MaterialTheme.colorScheme.primary
+                            else -> MaterialTheme.colorScheme.outline
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .size(56.dp)
+                                .border(
+                                    width = if (isFocused) { 2.dp } else { 1.dp },
+                                    color = borderColor,
+                                    shape = RoundedCornerShape(12.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = char,
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun PairingScreenPreview() {
+    CitrusRemoteTheme {
+        PairingScreenContent(
+            deviceName = "Living Room Apple TV",
+            uiState = PairingUiState.WaitingForPin,
+            pinCode = "12",
+            remainingBackOffSeconds = null,
+            onPinChange = {},
+            onSubmitPin = {},
+            onRetryInitiate = {},
+            onBack = {}
+        )
     }
 }
