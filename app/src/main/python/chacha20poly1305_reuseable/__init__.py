@@ -26,7 +26,7 @@ class ChaCha20Poly1305Reusable:
 
     def __init__(self, key: bytes | bytearray) -> None:
         if not isinstance(key, (bytes, bytearray)):
-            raise TypeError("key must be bytes or bytearay")
+            raise TypeError("key must be bytes or bytearray")
 
         if len(key) != self._KEY_LEN:
             raise ValueError("ChaCha20Poly1305Reusable key must be 32 bytes.")

@@ -124,12 +124,10 @@ class _PairingSession:
     async def close(self):
         if not self.handler:
             return
-        try:
+        with contextlib.suppress(Exception):
             close_result = self.handler.close()
             if inspect.isawaitable(close_result):
                 await close_result
-        except Exception:
-            pass
 
 
 _active_session: _PairingSession | None = None
@@ -323,15 +321,18 @@ def _format_model_name(conf):
     if not device_info or not hasattr(device_info, "model"):
         return "Unknown Apple TV"
 
-    model = device_info.model
-    raw_model = getattr(model, "name", str(model))
+    raw_model = getattr(device_info.model, "name", str(device_info.model))
     raw_model_str = str(getattr(device_info, "raw_model", "") or "")
     model_name = (
-        _MODEL_MAP.get(raw_model)
-        or _MODEL_MAP.get(raw_model_str)
-        or _MODEL_LOOKUP.get(raw_model.lower())
+        _MODEL_LOOKUP.get(raw_model.lower())
+        or _MODEL_LOOKUP.get(raw_model_str.lower())
     )
     return model_name or f"Apple TV ({raw_model})"
+
+
+def _is_tvos_device(conf):
+    info = getattr(conf, "device_info", None)
+    return getattr(info, "operating_system", None) == pyatv.const.OperatingSystem.TvOS
 
 
 async def _async_scan_for_devices():
@@ -344,8 +345,7 @@ async def _async_scan_for_devices():
             "model": _format_model_name(conf),
         }
         for conf in atvs
-        if getattr(getattr(conf, "device_info", None), "operating_system", None)
-        == pyatv.const.OperatingSystem.TvOS
+        if _is_tvos_device(conf)
     ]
     return json.dumps(devices)
 
@@ -395,6 +395,13 @@ def initiate_pairing(ip_address):
     return _run_json(_async_initiate_pairing(ip_address))
 
 
+def _is_crypto_backend_error(cause):
+    if not cause:
+        return False
+    cause_str = str(cause).lower()
+    return isinstance(cause, AssertionError) or "chacha20" in cause_str or "aead" in cause_str
+
+
 async def _async_finish_pairing(device_ip, pin_code):
     global _active_session
     if not _active_session:
@@ -434,12 +441,7 @@ async def _async_finish_pairing(device_ip, pin_code):
         await _reset_pairing_state(close_handler=True)
         _LOGGER.exception("Pairing error: %s", e)
         error_msg = str(e)
-        cause = e.__cause__
-        if cause and (
-            "AssertionError" in str(type(cause))
-            or "chacha20" in str(cause).lower()
-            or "aead" in str(cause).lower()
-        ):
+        if _is_crypto_backend_error(e.__cause__):
             error_msg = (
                 "Cryptography error on Android while establishing Companion pairing. "
                 "The device crypto backend rejected ChaCha20-Poly1305. "
