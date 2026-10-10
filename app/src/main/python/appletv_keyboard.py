@@ -11,20 +11,17 @@ _ERR_KEYBOARD_FOCUS = "Error: Open a text field on Apple TV first, then try typi
 
 
 async def _with_keyboard(ip_address, credentials_json, action, feature=None):
-    conf, error = await _build_configuration(ip_address, credentials_json)
-    if error:
-        return error
-
-    async with _connect_apple_tv(conf) as atv:
-        try:
+    try:
+        conf = await _build_configuration(ip_address, credentials_json)
+        async with _connect_apple_tv(conf) as atv:
             if atv.keyboard.text_focus_state == pyatv.const.KeyboardFocusState.Unfocused:
                 return _ERR_KEYBOARD_FOCUS
             if feature and not atv.features.in_state(pyatv.const.FeatureState.Available, feature):
                 return _ERR_KEYBOARD_FOCUS
             return await action(atv, conf)
-        except Exception as ex:
-            _LOGGER.exception("Keyboard command failed")
-            return f"Error: {ex}"
+    except Exception as ex:
+        _LOGGER.exception("Keyboard command failed")
+        return f"Error: {ex}"
 
 
 def _safe_run(coro):

@@ -29,20 +29,20 @@ async def simulate_keyboard_lifecycle(fake_atv):
     while True:
         device_awake = companion_state.powered_on and mrp_state.powered_on
 
-        if not device_awake:
-            if last_power_state:
+        if device_awake != last_power_state:
+            last_power_state = device_awake
+            if device_awake:
+                companion_usecase.set_system_status(SystemStatus.Awake)
+                print("Mock Apple TV awake", flush=True)
+            else:
                 companion_usecase.set_system_status(SystemStatus.Asleep)
                 companion_usecase.set_rti_focus_state(KeyboardFocusState.Unfocused)
                 text_field_opened = False
                 print("Mock Apple TV asleep", flush=True)
-            last_power_state = False
+
+        if not device_awake:
             await asyncio.sleep(0.1)
             continue
-
-        if not last_power_state:
-            companion_usecase.set_system_status(SystemStatus.Awake)
-            print("Mock Apple TV awake", flush=True)
-        last_power_state = True
 
         if companion_state.has_paired and not text_field_opened:
             await asyncio.sleep(0.75)

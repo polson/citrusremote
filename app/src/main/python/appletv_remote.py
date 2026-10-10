@@ -23,7 +23,6 @@ warnings.filterwarnings(
 _LOGGER = logging.getLogger(__name__)
 
 _loop = None
-_loop_thread = None
 _CREDENTIALS_VERSION = 2
 _PRIMARY_PROTOCOL = pyatv.const.Protocol.Companion
 _DEFAULT_UNMUTE_VOLUME = 50.0
@@ -67,6 +66,8 @@ _MODEL_MAP = {
     "AppleTV": "Apple TV",
 }
 
+_MODEL_LOOKUP = {k.lower(): v for k, v in _MODEL_MAP.items()}
+
 
 def _run_event_loop(loop):
     asyncio.set_event_loop(loop)
@@ -74,13 +75,12 @@ def _run_event_loop(loop):
 
 
 def _get_loop():
-    global _loop, _loop_thread
+    global _loop
     if _loop is None:
         _loop = asyncio.new_event_loop()
-        _loop_thread = threading.Thread(
+        threading.Thread(
             target=_run_event_loop, args=(_loop,), daemon=True
-        )
-        _loop_thread.start()
+        ).start()
     return _loop
 
 
@@ -148,7 +148,7 @@ async def _reset_pairing_state(close_handler=False):
 
 
 def _create_mock_configuration():
-    conf = pyatv.conf.AppleTV(ipaddress.IPv4Address("10.0.2.2"), "Mock Apple TV")
+    conf = pyatv.conf.AppleTV(ipaddress.IPv4Address(_MOCK_DEVICE_IP), "Mock Apple TV")
     conf.add_service(
         pyatv.conf.ManualService(
             "companion-id", pyatv.const.Protocol.Companion, 49152, {}
@@ -166,6 +166,13 @@ async def _discover_configuration(ip_address):
         return [_create_mock_configuration()]
     hosts = [ip_address] if ip_address else None
     return await pyatv.scan(loop, hosts=hosts)
+
+
+async def _discover_single_device(ip_address):
+    devices = await _discover_configuration(ip_address)
+    if not devices:
+        raise RuntimeError("No Apple TV found")
+    return devices[0]
 
 
 def _protocol_from_identifier(protocol_identifier):
@@ -210,10 +217,11 @@ def _parse_credentials_payload(credentials_json):
     if not credentials_json:
         return {}
 
-    creds_data = credentials_json
-    if isinstance(credentials_json, str):
-        creds_data = json.loads(credentials_json)
-
+    creds_data = (
+        json.loads(credentials_json)
+        if isinstance(credentials_json, str)
+        else credentials_json
+    )
     if not isinstance(creds_data, dict):
         raise ValueError("Credentials payload must be a JSON object")
 
@@ -232,17 +240,13 @@ def _parse_credentials_payload(credentials_json):
 
     parsed_credentials = {}
     for protocol_key, entry in protocol_credentials.items():
-        if not isinstance(entry, dict):
-            continue
-
-        protocol = _protocol_from_identifier(
-            entry.get("protocol_name") or entry.get("protocol") or protocol_key
-        )
-        credential_string = entry.get("credential_string")
-        if protocol is None or not credential_string:
-            continue
-
-        parsed_credentials[protocol] = credential_string
+        if isinstance(entry, dict):
+            protocol = _protocol_from_identifier(
+                entry.get("protocol_name") or entry.get("protocol") or protocol_key
+            )
+            credential_string = entry.get("credential_string")
+            if protocol and credential_string:
+                parsed_credentials[protocol] = credential_string
 
     return parsed_credentials
 
@@ -273,27 +277,17 @@ def _apply_credentials(conf, credentials_json, preferred_protocol=_PRIMARY_PROTO
 
 
 async def _build_configuration(ip_address="", credentials_json=""):
-    if credentials_json:
-        try:
-            if _has_legacy_mock_credentials(credentials_json) and not _is_mock_device(
-                ip_address
-            ):
-                return (
-                    None,
-                    (
-                        "Error: Stored mock credentials cannot be used with a real Apple TV. "
-                        "Clear the device credentials in the app and pair again."
-                    ),
-                )
-        except Exception as ex:
-            return None, f"Error applying credentials: {ex}"
+    if (
+        credentials_json
+        and _has_legacy_mock_credentials(credentials_json)
+        and not _is_mock_device(ip_address)
+    ):
+        raise RuntimeError(
+            "Stored mock credentials cannot be used with a real Apple TV. "
+            "Clear the device credentials in the app and pair again."
+        )
 
-    atvs = await _discover_configuration(ip_address)
-
-    if not atvs:
-        return None, "Error: No Apple TV found"
-
-    conf = atvs[0]
+    conf = await _discover_single_device(ip_address)
 
     if credentials_json:
         try:
@@ -306,24 +300,21 @@ async def _build_configuration(ip_address="", credentials_json=""):
             else:
                 _LOGGER.debug("No matching credentials were applied to configuration")
         except Exception as ex:
-            return None, f"Error applying credentials: {ex}"
+            raise RuntimeError(f"Error applying credentials: {ex}") from ex
 
-    return conf, None
+    return conf
 
 
 def _select_pairing_protocol(conf):
     if conf.get_service(_PRIMARY_PROTOCOL):
-        return _PRIMARY_PROTOCOL, None
+        return _PRIMARY_PROTOCOL
 
     discovered = [service.protocol.name for service in conf.services]
     discovered_message = ", ".join(discovered) if discovered else "none"
-    return (
-        None,
-        (
-            "Companion service is not available on this Apple TV. "
-            "CitrusRemote requires Companion pairing for keyboard input and "
-            f"remote buttons. Discovered protocols: {discovered_message}."
-        ),
+    raise RuntimeError(
+        "Companion service is not available on this Apple TV. "
+        "CitrusRemote requires Companion pairing for keyboard input and "
+        f"remote buttons. Discovered protocols: {discovered_message}."
     )
 
 
@@ -333,17 +324,13 @@ def _format_model_name(conf):
         return "Unknown Apple TV"
 
     model = device_info.model
-    raw_model = model.name if hasattr(model, "name") else str(model)
-    model_name = _MODEL_MAP.get(raw_model)
-    if not model_name and getattr(device_info, "raw_model", None):
-        model_name = _MODEL_MAP.get(str(device_info.raw_model))
-    if not model_name:
-        raw_model_lower = raw_model.lower()
-        for k, v in _MODEL_MAP.items():
-            if k.lower() == raw_model_lower:
-                model_name = v
-                break
-
+    raw_model = getattr(model, "name", str(model))
+    raw_model_str = str(getattr(device_info, "raw_model", "") or "")
+    model_name = (
+        _MODEL_MAP.get(raw_model)
+        or _MODEL_MAP.get(raw_model_str)
+        or _MODEL_LOOKUP.get(raw_model.lower())
+    )
     return model_name or f"Apple TV ({raw_model})"
 
 
@@ -380,16 +367,9 @@ async def _async_initiate_pairing(ip_address):
 
     await _reset_pairing_state(close_handler=True)
 
-    atvs = await _discover_configuration(ip_address)
-    if not atvs:
-        return _error_json("Apple TV not found")
-
-    conf = atvs[0]
-    protocol, error_message = _select_pairing_protocol(conf)
-    if protocol is None:
-        return _error_json(error_message)
-
     try:
+        conf = await _discover_single_device(ip_address)
+        protocol = _select_pairing_protocol(conf)
         handler = await pyatv.pair(conf, protocol, loop)
         await asyncio.wait_for(handler.begin(), timeout=15.0)
         _active_session = _PairingSession(
@@ -489,10 +469,7 @@ def cancel_pairing():
 
 
 async def _async_validate_credentials(ip_address, credentials_json=""):
-    conf, error = await _build_configuration(ip_address, credentials_json)
-    if error:
-        return _error_json(error)
-
+    conf = await _build_configuration(ip_address, credentials_json)
     async with _connect_apple_tv(conf):
         return _success_json(message=f"Validated credentials for {conf.name}")
 
@@ -567,9 +544,7 @@ async def _async_send_command(ip_address, credentials_json, command):
     if command_spec is None:
         return f"Error: Unknown command '{command}'"
 
-    conf, error = await _build_configuration(ip_address, credentials_json)
-    if error:
-        return error
+    conf = await _build_configuration(ip_address, credentials_json)
 
     async with _connect_apple_tv(conf) as atv:
         method_name, feature_name, input_action = command_spec
