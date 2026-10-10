@@ -184,21 +184,23 @@ fun PairingScreen(
                     
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    val statusText = when (uiState) {
+                    val statusText = when (val state = uiState) {
                         is PairingUiState.Initiating -> "Connecting to device..."
                         is PairingUiState.WaitingForPin -> "Enter the PIN displayed on your TV"
                         is PairingUiState.Error -> {
-                            val errorState = uiState as PairingUiState.Error
-                            if (errorState.isBackOff) {
-                                if ((remainingBackOffSeconds ?: 0L) > 0L) {
+                            when {
+                                state.isBackOff && (remainingBackOffSeconds ?: 0L) > 0L -> {
                                     "Pairing locked for ${formatBackOffDuration(remainingBackOffSeconds ?: 0L)}"
-                                } else {
+                                }
+                                state.isBackOff -> {
                                     "Pairing lock expired. Retry the connection."
                                 }
-                            } else if (errorState.canRetryInitiating) {
-                                "Pairing needs to be restarted"
-                            } else {
-                                "Enter the PIN displayed on your TV"
+                                state.canRetryInitiating -> {
+                                    "Pairing needs to be restarted"
+                                }
+                                else -> {
+                                    "Enter the PIN displayed on your TV"
+                                }
                             }
                         }
                         is PairingUiState.Pairing -> "Verifying PIN..."
@@ -322,16 +324,19 @@ fun PairingScreen(
                                             else -> pinCode[index].toString()
                                         }
                                         val isFocused = index == pinCode.length && isInputEnabled
-                                        val showErrorBorder = hasError && (pinCode.length == 4 || (uiState as PairingUiState.Error).isBackOff)
-                                        
+                                        val showErrorBorder = hasError && (pinCode.length == 4 || errorState?.isBackOff == true)
+                                        val borderColor = when {
+                                            showErrorBorder -> MaterialTheme.colorScheme.error
+                                            isFocused -> MaterialTheme.colorScheme.primary
+                                            else -> MaterialTheme.colorScheme.outline
+                                        }
+
                                         Box(
                                             modifier = Modifier
                                                 .size(56.dp)
                                                 .border(
-                                                    width = if (isFocused) 2.dp else 1.dp,
-                                                    color = if (showErrorBorder) MaterialTheme.colorScheme.error 
-                                                           else if (isFocused) MaterialTheme.colorScheme.primary 
-                                                           else MaterialTheme.colorScheme.outline,
+                                                    width = if (isFocused) { 2.dp } else { 1.dp },
+                                                    color = borderColor,
                                                     shape = RoundedCornerShape(12.dp)
                                                 ),
                                             contentAlignment = Alignment.Center
@@ -348,23 +353,20 @@ fun PairingScreen(
                             }
                         }
                     )
-                    
-                    if (hasError) {
-                        val errorState = uiState as PairingUiState.Error
-                        if (!errorState.isBackOff) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = errorState.message,
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodySmall,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
+
+                    if (errorState != null && !errorState.isBackOff) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = errorState.message,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
-                    
+
                     Spacer(modifier = Modifier.height(32.dp))
-                    
+
                     Crossfade(
                         targetState = isWorking,
                         label = "PairingActionState"
@@ -379,8 +381,7 @@ fun PairingScreen(
                                 )
                             }
                         } else {
-                            val couldRetry = hasError && (uiState as PairingUiState.Error).canRetryInitiating
-                            val isLocked = (remainingBackOffSeconds ?: 0L) > 0L
+                            val couldRetry = errorState?.canRetryInitiating == true
                             val canPair = uiState is PairingUiState.WaitingForPin
                             
                             Column(
@@ -407,7 +408,7 @@ fun PairingScreen(
                                     )
                                 ) {
                                     Text(
-                                        text = if (couldRetry) "Retry Connection" else "Pair Device",
+                                        text = if (couldRetry) { "Retry Connection" } else { "Pair Device" },
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.SemiBold
                                     )

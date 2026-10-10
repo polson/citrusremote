@@ -321,11 +321,11 @@ private fun AppleTvInspiredRemote(
         contentAlignment = Alignment.TopCenter
     ) {
         val compact = maxWidth < 360.dp
-        val remoteWidth = if (compact) 208.dp else 228.dp
-        val clickPadSize = if (compact) 164.dp else 184.dp
-        val shellShape = RoundedCornerShape(if (compact) 34.dp else 40.dp)
-        val controlSpacing = if (compact) 12.dp else 14.dp
-        val faceButtonSize = if (compact) 48.dp else 52.dp
+        val remoteWidth = if (compact) { 208.dp } else { 228.dp }
+        val clickPadSize = if (compact) { 164.dp } else { 184.dp }
+        val shellShape = RoundedCornerShape(if (compact) { 34.dp } else { 40.dp })
+        val controlSpacing = if (compact) { 12.dp } else { 14.dp }
+        val faceButtonSize = if (compact) { 48.dp } else { 52.dp }
         val rockerHeight = faceButtonSize * 3 + controlSpacing * 2
         val isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
         val shellGradient = if (isDarkTheme) {
@@ -365,7 +365,7 @@ private fun AppleTvInspiredRemote(
                 modifier = Modifier
                     .background(Brush.verticalGradient(shellGradient))
                     .border(BorderStroke(1.dp, shellBorder), shellShape)
-                    .padding(horizontal = if (compact) 16.dp else 18.dp, vertical = 18.dp),
+                    .padding(horizontal = if (compact) { 16.dp } else { 18.dp }, vertical = 18.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Box(
@@ -439,7 +439,7 @@ private fun AppleTvInspiredRemote(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(if (compact) 8.dp else 12.dp))
+                Spacer(modifier = Modifier.height(if (compact) { 8.dp } else { 12.dp }))
             }
         }
     }
@@ -452,8 +452,8 @@ private fun DPad(
 ) {
     val padGradient = listOf(CITRUS_TEAL_HIGHLIGHT, CITRUS_DEEP_TEAL)
     val dividerColor = MaterialTheme.colorScheme.onTertiary.copy(alpha = 0.2f)
-    val selectSize = if (padSize < 175.dp) 72.dp else 80.dp
-    val tapTargetSize = if (padSize < 175.dp) 58.dp else 64.dp
+    val selectSize = if (padSize < 175.dp) { 72.dp } else { 80.dp }
+    val tapTargetSize = if (padSize < 175.dp) { 58.dp } else { 64.dp }
     val dPadInteractionSource = remember { MutableInteractionSource() }
 
     Box(
@@ -557,7 +557,7 @@ private fun Modifier.dPadDirectionTapTarget(
         .pointerInput(interactionSource, onTap, onLongPress) {
             detectTapGestures(
                 onTap = { onTap() },
-                onLongPress = if (onLongPress == null) null else { _ -> onLongPress() },
+                onLongPress = onLongPress?.let { callback -> { _ -> callback() } },
                 onPress = { offset ->
                     val press = PressInteraction.Press(pressOriginInParent.value + offset)
                     interactionSource.emit(press)

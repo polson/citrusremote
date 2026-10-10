@@ -418,7 +418,7 @@ fun DeviceListItem(
             ) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Icon(
-                        imageVector = if (device.isAudioDevice) Icons.Rounded.Speaker else Icons.Rounded.Tv,
+                        imageVector = if (device.isAudioDevice) { Icons.Rounded.Speaker } else { Icons.Rounded.Tv },
                         contentDescription = device.name,
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(34.dp)

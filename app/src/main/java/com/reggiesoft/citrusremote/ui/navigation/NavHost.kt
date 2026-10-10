@@ -24,17 +24,11 @@ object Routes {
     const val PAIRING = "pairing/{deviceIp}/{deviceName}"
     const val CONTROL = "control/{deviceIp}/{deviceName}"
 
-    fun pairingRoute(deviceIp: String, deviceName: String): String {
-        val encodedIp = URLEncoder.encode(deviceIp, StandardCharsets.UTF_8.toString())
-        val encodedName = URLEncoder.encode(deviceName, StandardCharsets.UTF_8.toString())
-        return "pairing/$encodedIp/$encodedName"
-    }
+    fun pairingRoute(deviceIp: String, deviceName: String): String =
+        "pairing/${deviceIp.urlEncoded()}/${deviceName.urlEncoded()}"
 
-    fun controlRoute(deviceIp: String, deviceName: String): String {
-        val encodedIp = URLEncoder.encode(deviceIp, StandardCharsets.UTF_8.toString())
-        val encodedName = URLEncoder.encode(deviceName, StandardCharsets.UTF_8.toString())
-        return "control/$encodedIp/$encodedName"
-    }
+    fun controlRoute(deviceIp: String, deviceName: String): String =
+        "control/${deviceIp.urlEncoded()}/${deviceName.urlEncoded()}"
 }
 
 @Composable
@@ -119,3 +113,6 @@ private fun NavBackStackEntry.decodedArgument(key: String): String {
     val raw = arguments?.getString(key).orEmpty()
     return URLDecoder.decode(raw, StandardCharsets.UTF_8.name())
 }
+
+private fun String.urlEncoded(): String = URLEncoder.encode(this, StandardCharsets.UTF_8.name())
+
