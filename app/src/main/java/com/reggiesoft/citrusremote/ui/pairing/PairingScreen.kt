@@ -191,7 +191,7 @@ fun PairingScreen(
                             val errorState = uiState as PairingUiState.Error
                             if (errorState.isBackOff) {
                                 if ((remainingBackOffSeconds ?: 0L) > 0L) {
-                                    "Pairing locked for ${PairingViewModel.formatBackOffDuration(remainingBackOffSeconds ?: 0L)}"
+                                    "Pairing locked for ${formatBackOffDuration(remainingBackOffSeconds ?: 0L)}"
                                 } else {
                                     "Pairing lock expired. Retry the connection."
                                 }

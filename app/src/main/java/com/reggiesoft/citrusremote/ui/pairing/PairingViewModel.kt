@@ -94,7 +94,7 @@ class PairingViewModel @Inject constructor(
     }
 
     private fun handlePairingFailure(deviceIp: String, rawError: String) {
-        Log.e("PairingViewModel", rawError)
+        Log.e(TAG, rawError)
         val error = mapPairingError(rawError)
         if (error.isBackOff) {
             error.backOffSeconds?.let {
@@ -127,7 +127,7 @@ class PairingViewModel @Inject constructor(
     private fun mapPairingError(rawError: String): PairingUiState.Error {
         val normalized = rawError.trim()
 
-        val backOffMatch = Regex("""BackOff=(\d+)s""").find(normalized)
+        val backOffMatch = BACK_OFF_REGEX.find(normalized)
         if (normalized.contains("Error=BackOff", ignoreCase = true) || backOffMatch != null) {
             val seconds = backOffMatch?.groupValues?.getOrNull(1)?.toLongOrNull()
             return PairingUiState.Error(
@@ -190,19 +190,23 @@ class PairingViewModel @Inject constructor(
         return "$currentDeviceName Apple TV has temporarily locked pairing for $waitTime, due to too many attempts. This is an Apple TV Security restriction. Wait for the lockout to expire before trying again."
     }
 
-    companion object {
-        fun formatBackOffDuration(seconds: Long): String {
-            if (seconds <= 0L) {
-                return "0m 00s"
-            }
-
-            val hours = seconds / 3600L
-            val minutes = (seconds % 3600L) / 60L
-            val remainingSeconds = seconds % 60L
-            if (hours > 0L) {
-                return String.format(Locale.US, "%dh %02dm %02ds", hours, minutes, remainingSeconds)
-            }
-            return String.format(Locale.US, "%dm %02ds", minutes, remainingSeconds)
-        }
+    private companion object {
+        private const val TAG = "PairingViewModel"
     }
+}
+
+private val BACK_OFF_REGEX = Regex("""BackOff=(\d+)s""")
+
+fun formatBackOffDuration(seconds: Long): String {
+    if (seconds <= 0L) {
+        return "0m 00s"
+    }
+
+    val hours = seconds / 3600L
+    val minutes = (seconds % 3600L) / 60L
+    val remainingSeconds = seconds % 60L
+    if (hours > 0L) {
+        return String.format(Locale.US, "%dh %02dm %02ds", hours, minutes, remainingSeconds)
+    }
+    return String.format(Locale.US, "%dm %02ds", minutes, remainingSeconds)
 }

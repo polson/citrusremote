@@ -42,13 +42,13 @@ class KeyboardInputViewModel @Inject constructor(
             if (result.startsWith("Error:")) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    status = result.removePrefix("Error: ").ifBlank {
+                    status = result.cleanErrorMessage().ifBlank {
                         "Open a text field on Apple TV to start typing."
                     }
                 )
             } else {
                 _uiState.value = _uiState.value.copy(
-                    text = if (hasLocalEdits) _uiState.value.text else result,
+                    text = if (hasLocalEdits) { _uiState.value.text } else { result },
                     isLoading = false,
                     status = if (result.isBlank()) {
                         "Type here and it will sync to Apple TV."
@@ -72,15 +72,14 @@ class KeyboardInputViewModel @Inject constructor(
         syncJob = viewModelScope.launch {
             delay(250)
             val result = repository.setKeyboardText(deviceIp, text)
+            val statusMessage = when {
+                result.startsWith("Error:") -> result.cleanErrorMessage()
+                text.isBlank() -> "Apple TV text cleared."
+                else -> "Typing on Apple TV."
+            }
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
-                status = if (result.startsWith("Error:")) {
-                    result.removePrefix("Error: ")
-                } else if (text.isBlank()) {
-                    "Apple TV text cleared."
-                } else {
-                    "Typing on Apple TV."
-                }
+                status = statusMessage
             )
         }
     }
@@ -99,7 +98,7 @@ class KeyboardInputViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
                 status = if (result.startsWith("Error:")) {
-                    result.removePrefix("Error: ")
+                    result.cleanErrorMessage()
                 } else {
                     "Apple TV text cleared."
                 }
@@ -121,7 +120,7 @@ class KeyboardInputViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
                 status = if (result.startsWith("Error:")) {
-                    result.removePrefix("Error: ")
+                    result.cleanErrorMessage()
                 } else {
                     "Moved to the next Apple TV field."
                 }
@@ -129,3 +128,6 @@ class KeyboardInputViewModel @Inject constructor(
         }
     }
 }
+
+private fun String.cleanErrorMessage(): String = removePrefix("Error: ").trim()
+

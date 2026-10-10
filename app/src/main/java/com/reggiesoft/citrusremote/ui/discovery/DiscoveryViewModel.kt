@@ -41,11 +41,8 @@ class DiscoveryViewModel @Inject constructor(
         }
     }
 
-    fun hasUsableCredentials(deviceIp: String): Boolean {
-        return repository.hasUsableCredentials(deviceIp)
-    }
+    fun hasUsableCredentials(deviceIp: String): Boolean = repository.hasUsableCredentials(deviceIp)
 
-    fun isPairingLocked(deviceIp: String, nowMillis: Long = System.currentTimeMillis()): Boolean {
-        return repository.isPairingLocked(deviceIp, nowMillis)
-    }
+    fun isPairingLocked(deviceIp: String, nowMillis: Long = System.currentTimeMillis()): Boolean =
+        repository.isPairingLocked(deviceIp, nowMillis)
 }
