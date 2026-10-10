@@ -29,10 +29,7 @@ class KeyboardInputRepository @Inject constructor(
         deviceIp: String,
         action: suspend (String) -> String
     ): String {
-        val creds = deviceRepository.getCredentials(deviceIp)
-        if (creds == null) {
-            return DeviceRepository.INVALID_CREDENTIALS_MESSAGE
-        }
+        val creds = deviceRepository.getCredentials(deviceIp) ?: return DeviceRepository.INVALID_CREDENTIALS_MESSAGE
         val result = action(creds)
         return deviceRepository.clearCredentialsIfInvalid(deviceIp, result)
     }

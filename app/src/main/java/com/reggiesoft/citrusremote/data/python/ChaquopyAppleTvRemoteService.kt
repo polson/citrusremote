@@ -18,12 +18,12 @@ class ChaquopyAppleTvRemoteService @Inject constructor() : AppleTvRemoteService 
     private val python by lazy { Python.getInstance() }
     private val module by lazy { python.getModule("appletv_remote") }
 
-    private fun normalizePythonResult(result: String): String {
+    private fun normalizePythonResult(result: String): String =
         if (result == "Error:" || result == "Error: ") {
-            return "Error: Apple TV command failed without a detailed message."
+            "Error: Apple TV command failed without a detailed message."
+        } else {
+            result
         }
-        return result
-    }
 
     override suspend fun scanForDevices(): List<AppleTvDevice> = withContext(Dispatchers.IO) {
         try {
@@ -75,13 +75,12 @@ class ChaquopyAppleTvRemoteService @Inject constructor() : AppleTvRemoteService 
         }
     }
 
-    override suspend fun cancelPairing() = withContext(Dispatchers.IO) {
+    override suspend fun cancelPairing(): Unit = withContext(Dispatchers.IO) {
         try {
             module.callAttr("cancel_pairing")
         } catch (e: Exception) {
             Log.e(TAG, "Exception on cancel", e)
         }
-        Unit
     }
 
     override suspend fun sendCommand(deviceIp: String, credsJson: String, command: RemoteCommand): String = withContext(Dispatchers.IO) {
@@ -97,17 +96,15 @@ class ChaquopyAppleTvRemoteService @Inject constructor() : AppleTvRemoteService 
             "Error: ${e.message}"
         }
     }
-
-    private companion object {
-        private const val TAG = "AppleTVRemote"
-    }
 }
+
+private const val TAG = "AppleTVRemote"
 
 private fun JSONArray.toDeviceList(): List<AppleTvDevice> = buildList {
     for (i in 0 until length()) {
         val jsonObject = getJSONObject(i)
         if (jsonObject.has("error")) {
-            Log.e("AppleTVRemote", "Scan error: ${jsonObject.getString("error")}")
+            Log.e(TAG, "Scan error: ${jsonObject.getString("error")}")
             continue
         }
         add(

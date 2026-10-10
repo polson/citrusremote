@@ -189,11 +189,9 @@ class PairingViewModel @Inject constructor(
         val waitTime = seconds?.let { formatBackOffDuration(it) } ?: "a while"
         return "$currentDeviceName Apple TV has temporarily locked pairing for $waitTime, due to too many attempts. This is an Apple TV Security restriction. Wait for the lockout to expire before trying again."
     }
-
-    private companion object {
-        private const val TAG = "PairingViewModel"
-    }
 }
+
+private const val TAG = "PairingViewModel"
 
 private val BACK_OFF_REGEX = Regex("""BackOff=(\d+)s""")
 

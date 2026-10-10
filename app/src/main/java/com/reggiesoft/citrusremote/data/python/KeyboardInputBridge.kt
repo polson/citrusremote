@@ -37,8 +37,6 @@ class KeyboardInputBridge @Inject constructor() {
             "Error: ${e.message}"
         }
     }
-
-    private companion object {
-        private const val TAG = "AppleTVKeyboard"
-    }
 }
+
+private const val TAG = "AppleTVKeyboard"

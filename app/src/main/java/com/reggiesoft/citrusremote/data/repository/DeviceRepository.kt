@@ -17,10 +17,8 @@ class DeviceRepository @Inject constructor(
     @ApplicationContext context: Context
 ) {
     private val prefs: SharedPreferences = context.getSharedPreferences("AppleTVPrefs", Context.MODE_PRIVATE)
+
     companion object {
-        private const val TAG = "DeviceRepository"
-        private const val LOCKOUT_UNTIL_PREFIX = "pairing_lockout_until_"
-        private const val CREDENTIALS_PREFIX = "creds_"
         const val INVALID_CREDENTIALS_MESSAGE =
             "Error: Saved credentials are missing or invalid for this Apple TV. Pair again."
     }
@@ -50,7 +48,7 @@ class DeviceRepository @Inject constructor(
         return result
     }
 
-    suspend fun cancelPairing() = remoteService.cancelPairing()
+    suspend fun cancelPairing(): Unit = remoteService.cancelPairing()
 
     suspend fun sendCommand(deviceIp: String, command: RemoteCommand): String {
         val creds = getCredentials(deviceIp) ?: return INVALID_CREDENTIALS_MESSAGE
@@ -117,3 +115,7 @@ class DeviceRepository @Inject constructor(
 
     private fun lockoutKey(deviceIp: String): String = "$LOCKOUT_UNTIL_PREFIX$deviceIp"
 }
+
+private const val TAG = "DeviceRepository"
+private const val LOCKOUT_UNTIL_PREFIX = "pairing_lockout_until_"
+private const val CREDENTIALS_PREFIX = "creds_"

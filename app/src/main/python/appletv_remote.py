@@ -4,6 +4,7 @@ import ipaddress
 import json
 import logging
 import threading
+import traceback
 import warnings
 
 import pyatv
@@ -454,8 +455,6 @@ async def _async_finish_pairing(device_ip, pin_code):
     except Exception as e:
         await _reset_pairing_state(close_handler=True)
         _LOGGER.exception("Pairing error: %s", e)
-        import traceback
-
         _LOGGER.debug("Traceback: %s", traceback.format_exc())
         error_msg = str(e)
         cause = e.__cause__
