@@ -77,7 +77,7 @@ class PairingViewModelTest {
         assertTrue("Expected Error but was $state", state is PairingUiState.Error)
         val error = state as PairingUiState.Error
         assertTrue(error.canRetryInitiating)
-        assertFalse(error.isBackOff)
+        assertFalse(error.isLocked)
     }
 
     @Test
@@ -90,11 +90,11 @@ class PairingViewModelTest {
         assertTrue("Expected Error but was $state", state is PairingUiState.Error)
         val error = state as PairingUiState.Error
         assertTrue(error.canRetryInitiating)
-        assertFalse(error.isBackOff)
+        assertFalse(error.isLocked)
     }
 
     @Test
-    fun `initiatePairing backoff sets error with backoff info`() = runTest {
+    fun `initiatePairing lockout sets error with lockout info`() = runTest {
         coEvery { repository.initiatePairing("10.0.2.2") } returns Pair(false, "Error=BackOff BackOff=120s")
 
         viewModel.initiatePairing("10.0.2.2", "Mock Apple TV")
@@ -102,13 +102,13 @@ class PairingViewModelTest {
         val state = viewModel.uiState.value
         assertTrue("Expected Error but was $state", state is PairingUiState.Error)
         val error = state as PairingUiState.Error
-        assertTrue(error.isBackOff)
-        assertEquals(120L, error.backOffSeconds)
+        assertTrue(error.isLocked)
+        assertEquals(120L, error.lockoutSeconds)
         assertTrue(error.canRetryInitiating)
     }
 
     @Test
-    fun `initiatePairing backoff calls setPairingLockout`() = runTest {
+    fun `initiatePairing lockout calls setPairingLockout`() = runTest {
         coEvery { repository.initiatePairing("10.0.2.2") } returns Pair(false, "Error=BackOff BackOff=60s")
 
         viewModel.initiatePairing("10.0.2.2", "Mock Apple TV")

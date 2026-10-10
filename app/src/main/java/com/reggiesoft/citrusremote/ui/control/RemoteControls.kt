@@ -209,26 +209,26 @@ internal fun RemoteControl(
                         verticalArrangement = Arrangement.spacedBy(controlSpacing),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        RemoteFaceButton(
+                        RemoteButton(
                             icon = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
                             onClick = { onCommand(RemoteCommand.MENU) },
                             onLongPress = { onCommand(RemoteCommand.MENU_HOLD) },
                             size = faceButtonSize
                         )
-                        RemoteFaceButton(
+                        RemoteButton(
                             icon = Icons.Default.PlayArrow,
                             contentDescription = "Play/Pause",
                             onClick = { onCommand(RemoteCommand.PLAY_PAUSE) },
                             size = faceButtonSize
                         )
-                        RemoteFaceButton(
+                        RemoteButton(
                             icon = Icons.AutoMirrored.Filled.VolumeOff,
                             contentDescription = "Mute",
                             onClick = { onCommand(RemoteCommand.MUTE) },
                             size = faceButtonSize
                         )
-                        RemoteFaceButton(
+                        RemoteButton(
                             icon = Icons.Default.Keyboard,
                             contentDescription = "Keyboard",
                             onClick = onKeyboard,
@@ -240,7 +240,7 @@ internal fun RemoteControl(
                         verticalArrangement = Arrangement.spacedBy(controlSpacing),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        RemoteFaceButton(
+                        RemoteButton(
                             icon = Icons.Default.Home,
                             contentDescription = "Home",
                             onClick = { onCommand(RemoteCommand.HOME) },
@@ -312,7 +312,7 @@ internal fun DPad(
                 .align(Alignment.TopCenter)
                 .padding(top = 8.dp)
                 .size(tapTargetSize)
-                .dPadDirectionTapTarget(dPadInteractionSource, { onCommand(RemoteCommand.UP) })
+                .dPadTarget(dPadInteractionSource, { onCommand(RemoteCommand.UP) })
         )
 
         Box(
@@ -320,7 +320,7 @@ internal fun DPad(
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 8.dp)
                 .size(tapTargetSize)
-                .dPadDirectionTapTarget(dPadInteractionSource, { onCommand(RemoteCommand.DOWN) })
+                .dPadTarget(dPadInteractionSource, { onCommand(RemoteCommand.DOWN) })
         )
 
         Box(
@@ -328,7 +328,7 @@ internal fun DPad(
                 .align(Alignment.CenterStart)
                 .padding(start = 8.dp)
                 .size(tapTargetSize)
-                .dPadDirectionTapTarget(
+                .dPadTarget(
                     interactionSource = dPadInteractionSource,
                     onTap = { onCommand(RemoteCommand.LEFT) },
                     onLongPress = { onCommand(RemoteCommand.LEFT_HOLD) }
@@ -340,7 +340,7 @@ internal fun DPad(
                 .align(Alignment.CenterEnd)
                 .padding(end = 8.dp)
                 .size(tapTargetSize)
-                .dPadDirectionTapTarget(
+                .dPadTarget(
                     interactionSource = dPadInteractionSource,
                     onTap = { onCommand(RemoteCommand.RIGHT) },
                     onLongPress = { onCommand(RemoteCommand.RIGHT_HOLD) }
@@ -359,7 +359,7 @@ internal fun DPad(
 }
 
 @Composable
-private fun Modifier.dPadDirectionTapTarget(
+private fun Modifier.dPadTarget(
     interactionSource: MutableInteractionSource,
     onTap: () -> Unit,
     onLongPress: (() -> Unit)? = null,
@@ -390,7 +390,7 @@ private fun Modifier.dPadDirectionTapTarget(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-internal fun RemoteFaceButton(
+internal fun RemoteButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     contentDescription: String,
     onClick: () -> Unit,

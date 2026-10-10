@@ -23,8 +23,8 @@ sealed interface PairingUiState {
     data class Error(
         val message: String,
         val canRetryInitiating: Boolean = false,
-        val isBackOff: Boolean = false,
-        val backOffSeconds: Long? = null
+        val isLocked: Boolean = false,
+        val lockoutSeconds: Long? = null
     ) : PairingUiState
 }
 
@@ -38,23 +38,23 @@ class PairingViewModel @Inject constructor(
 
     private var currentDeviceIp: String = ""
     private var currentDeviceName: String = ""
-    private var backOffJob: Job? = null
+    private var lockoutJob: Job? = null
 
     fun initiatePairing(deviceIp: String, deviceName: String) {
-        backOffJob?.cancel()
+        lockoutJob?.cancel()
         currentDeviceIp = deviceIp
         currentDeviceName = deviceName
 
         val remainingLockout = repository.getRemainingLockoutSeconds(deviceIp)
         if (remainingLockout > 0L) {
             val error = PairingUiState.Error(
-                message = buildBackOffMessage(remainingLockout),
+                message = buildLockoutMessage(remainingLockout),
                 canRetryInitiating = true,
-                isBackOff = true,
-                backOffSeconds = remainingLockout
+                isLocked = true,
+                lockoutSeconds = remainingLockout
             )
             _uiState.value = error
-            startBackOffCountdown(remainingLockout)
+            startLockoutCountdown(remainingLockout)
             return
         }
 
@@ -75,7 +75,7 @@ class PairingViewModel @Inject constructor(
             return
         }
 
-        backOffJob?.cancel()
+        lockoutJob?.cancel()
         _uiState.value = PairingUiState.Pairing
         viewModelScope.launch {
             val result = repository.finishPairing(currentDeviceIp, pin)
@@ -89,7 +89,7 @@ class PairingViewModel @Inject constructor(
     }
 
     fun cancelPairing() {
-        backOffJob?.cancel()
+        lockoutJob?.cancel()
         viewModelScope.launch {
             repository.cancelPairing()
         }
@@ -98,10 +98,10 @@ class PairingViewModel @Inject constructor(
     private fun handlePairingFailure(deviceIp: String, rawError: String) {
         Log.e(TAG, rawError)
         val error = mapPairingError(rawError)
-        if (error.isBackOff) {
-            error.backOffSeconds?.let {
+        if (error.isLocked) {
+            error.lockoutSeconds?.let {
                 repository.setPairingLockout(deviceIp, it)
-                startBackOffCountdown(it)
+                startLockoutCountdown(it)
             }
         } else {
             repository.clearPairingLockout(deviceIp)
@@ -109,16 +109,16 @@ class PairingViewModel @Inject constructor(
         _uiState.value = error
     }
 
-    private fun startBackOffCountdown(initialSeconds: Long) {
-        backOffJob?.cancel()
-        backOffJob = viewModelScope.launch {
+    private fun startLockoutCountdown(initialSeconds: Long) {
+        lockoutJob?.cancel()
+        lockoutJob = viewModelScope.launch {
             var seconds = initialSeconds
             while (seconds > 0L) {
                 delay(1000L)
                 seconds--
                 val currentState = _uiState.value
-                if (currentState is PairingUiState.Error && currentState.isBackOff) {
-                    _uiState.value = currentState.copy(backOffSeconds = seconds)
+                if (currentState is PairingUiState.Error && currentState.isLocked) {
+                    _uiState.value = currentState.copy(lockoutSeconds = seconds)
                 } else {
                     break
                 }
@@ -133,10 +133,10 @@ class PairingViewModel @Inject constructor(
         if (normalized.contains("Error=BackOff", ignoreCase = true) || backOffMatch != null) {
             val seconds = backOffMatch?.groupValues?.getOrNull(1)?.toLongOrNull()
             return PairingUiState.Error(
-                message = buildBackOffMessage(seconds),
+                message = buildLockoutMessage(seconds),
                 canRetryInitiating = true,
-                isBackOff = true,
-                backOffSeconds = seconds
+                isLocked = true,
+                lockoutSeconds = seconds
             )
         }
 
@@ -187,8 +187,8 @@ class PairingViewModel @Inject constructor(
         )
     }
 
-    private fun buildBackOffMessage(seconds: Long?): String {
-        val waitTime = seconds?.let { formatBackOffDuration(it) } ?: "a while"
+    private fun buildLockoutMessage(seconds: Long?): String {
+        val waitTime = seconds?.let { formatLockoutDuration(it) } ?: "a while"
         return "$currentDeviceName Apple TV has temporarily locked pairing for $waitTime, due to too many attempts. This is an Apple TV Security restriction. Wait for the lockout to expire before trying again."
     }
 }
@@ -197,7 +197,7 @@ private const val TAG = "PairingViewModel"
 
 private val BACK_OFF_REGEX = Regex("""BackOff=(\d+)s""")
 
-fun formatBackOffDuration(seconds: Long): String {
+fun formatLockoutDuration(seconds: Long): String {
     if (seconds <= 0L) {
         return "0m 00s"
     }

@@ -62,8 +62,8 @@ class DeviceRepository @Inject constructor(
         prefs.edit().remove(credentialsKey(deviceIp)).apply()
     }
 
-    fun setPairingLockout(deviceIp: String, backOffSeconds: Long) {
-        val lockoutUntilMillis = System.currentTimeMillis() + (backOffSeconds * 1000L)
+    fun setPairingLockout(deviceIp: String, lockoutSeconds: Long) {
+        val lockoutUntilMillis = System.currentTimeMillis() + (lockoutSeconds * 1000L)
         prefs.edit().putLong(lockoutKey(deviceIp), lockoutUntilMillis).apply()
     }
 

@@ -83,7 +83,7 @@ fun PairingScreen(
     var pinCode by remember { mutableStateOf("") }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val errorState = uiState as? PairingUiState.Error
-    val remainingBackOffSeconds = errorState?.takeIf { it.isBackOff }?.backOffSeconds
+    val remainingLockoutSeconds = errorState?.takeIf { it.isLocked }?.lockoutSeconds
 
     LaunchedEffect(deviceIp) {
         viewModel.initiatePairing(deviceIp, deviceName)
@@ -99,7 +99,7 @@ fun PairingScreen(
         deviceName = deviceName,
         uiState = uiState,
         pinCode = pinCode,
-        remainingBackOffSeconds = remainingBackOffSeconds,
+        remainingLockoutSeconds = remainingLockoutSeconds,
         onPinChange = { pinCode = it },
         onSubmitPin = { pin -> viewModel.finishPairing(pin) },
         onRetryInitiate = {
@@ -120,7 +120,7 @@ internal fun PairingScreenContent(
     deviceName: String,
     uiState: PairingUiState,
     pinCode: String,
-    remainingBackOffSeconds: Long?,
+    remainingLockoutSeconds: Long?,
     modifier: Modifier = Modifier,
     onPinChange: (String) -> Unit,
     onSubmitPin: (String) -> Unit,
@@ -133,9 +133,9 @@ internal fun PairingScreenContent(
     val scope = rememberCoroutineScope()
 
     val errorState = uiState as? PairingUiState.Error
-    val isLocked = (remainingBackOffSeconds ?: 0L) > 0L
-    val isPairingLocked = errorState?.isBackOff == true && isLocked
-    val backOffDialogMessage = errorState?.takeIf { it.isBackOff }?.message.orEmpty()
+    val isLocked = (remainingLockoutSeconds ?: 0L) > 0L
+    val isPairingLocked = errorState?.isLocked == true && isLocked
+    val lockoutDialogMessage = errorState?.takeIf { it.isLocked }?.message.orEmpty()
 
     LaunchedEffect(uiState) {
         if (uiState is PairingUiState.WaitingForPin) {
@@ -225,10 +225,10 @@ internal fun PairingScreenContent(
                         is PairingUiState.Success -> "Success!"
                         is PairingUiState.Error -> {
                             when {
-                                uiState.isBackOff && isLocked -> {
-                                    "Pairing locked for ${formatBackOffDuration(remainingBackOffSeconds ?: 0L)}"
+                                uiState.isLocked && isLocked -> {
+                                    "Pairing locked for ${formatLockoutDuration(remainingLockoutSeconds ?: 0L)}"
                                 }
-                                uiState.isBackOff -> {
+                                uiState.isLocked -> {
                                     "Pairing lock expired. Retry the connection."
                                 }
                                 uiState.canRetryInitiating -> {
@@ -258,7 +258,7 @@ internal fun PairingScreenContent(
                                             }
                                         }
                                     ) {
-                                        Text(backOffDialogMessage)
+                                        Text(lockoutDialogMessage)
                                     }
                                 },
                                 state = tooltipState
@@ -315,7 +315,7 @@ internal fun PairingScreenContent(
                         pinCode = pinCode,
                         isInputEnabled = isInputEnabled,
                         hasError = hasError,
-                        isBackOff = errorState?.isBackOff == true,
+                        isLocked = errorState?.isLocked == true,
                         focusRequester = focusRequester,
                         onValueChange = { newValue ->
                             val digitsOnly = newValue.filter { it.isDigit() }
@@ -328,7 +328,7 @@ internal fun PairingScreenContent(
                         }
                     )
 
-                    if (errorState != null && !errorState.isBackOff) {
+                    if (errorState != null && !errorState.isLocked) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = errorState.message,
@@ -400,7 +400,7 @@ private fun PinInputBoxes(
     pinCode: String,
     isInputEnabled: Boolean,
     hasError: Boolean,
-    isBackOff: Boolean,
+    isLocked: Boolean,
     focusRequester: FocusRequester,
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier
@@ -440,7 +440,7 @@ private fun PinInputBoxes(
                     repeat(4) { index ->
                         val char = if (index >= pinCode.length) { "" } else { pinCode[index].toString() }
                         val isFocused = index == pinCode.length && isInputEnabled
-                        val showErrorBorder = hasError && (pinCode.length == 4 || isBackOff)
+                        val showErrorBorder = hasError && (pinCode.length == 4 || isLocked)
                         val borderColor = when {
                             showErrorBorder -> MaterialTheme.colorScheme.error
                             isFocused -> MaterialTheme.colorScheme.primary
@@ -479,7 +479,7 @@ private fun PairingScreenPreview() {
             deviceName = "Living Room Apple TV",
             uiState = PairingUiState.WaitingForPin,
             pinCode = "12",
-            remainingBackOffSeconds = null,
+            remainingLockoutSeconds = null,
             onPinChange = {},
             onSubmitPin = {},
             onRetryInitiate = {},
