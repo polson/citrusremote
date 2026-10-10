@@ -19,33 +19,18 @@ class ChaquopyAppleTvRemoteService @Inject constructor() : AppleTvRemoteService 
     private val module by lazy { python.getModule("appletv_remote") }
 
     private fun normalizePythonResult(result: String): String {
-        return if (result == "Error:" || result == "Error: ") {
-            "Error: Apple TV command failed without a detailed message."
-        } else {
-            result
+        if (result == "Error:" || result == "Error: ") {
+            return "Error: Apple TV command failed without a detailed message."
         }
+        return result
     }
 
     override suspend fun scanForDevices(): List<AppleTvDevice> = withContext(Dispatchers.IO) {
         try {
             val resultJson = module.callAttr("scan_for_devices").toString()
-            val jsonArray = JSONArray(resultJson)
-            val deviceList = mutableListOf<AppleTvDevice>()
-            
-            for (i in 0 until jsonArray.length()) {
-                val jsonObject = jsonArray.getJSONObject(i)
-                if (jsonObject.has("error")) {
-                    Log.e("AppleTVRemote", "Scan error: ${jsonObject.getString("error")}")
-                    continue
-                }
-                val name = jsonObject.getString("name")
-                val address = jsonObject.getString("address")
-                val model = jsonObject.optString("model", "Unknown")
-                deviceList.add(AppleTvDevice(name, address, model))
-            }
-            deviceList
+            JSONArray(resultJson).toDeviceList()
         } catch (e: Exception) {
-            Log.e("AppleTVRemote", "Exception scanning for devices", e)
+            Log.e(TAG, "Exception scanning for devices", e)
             emptyList()
         }
     }
@@ -53,9 +38,7 @@ class ChaquopyAppleTvRemoteService @Inject constructor() : AppleTvRemoteService 
     override suspend fun initiatePairing(deviceIp: String): Pair<Boolean, String> = withContext(Dispatchers.IO) {
         try {
             val resultStr = module.callAttr("initiate_pairing", deviceIp).toString()
-            val json = JSONObject(resultStr)
-            val success = json.optString("status") == "success"
-            Pair(success, json.optString("message", ""))
+            JSONObject(resultStr).toStatusPair()
         } catch (e: Exception) {
             Pair(false, e.message ?: "Unknown error")
         }
@@ -73,11 +56,11 @@ class ChaquopyAppleTvRemoteService @Inject constructor() : AppleTvRemoteService 
                 )
             } else {
                 val errorMsg = json.optString("message", "")
-                Log.e("AppleTVRemote", "finishPairing failed: $errorMsg")
+                Log.e(TAG, "finishPairing failed: $errorMsg")
                 Pair(false, errorMsg)
             }
         } catch (e: Exception) {
-            Log.e("AppleTVRemote", "Exception in finishPairing for '$deviceIp'", e)
+            Log.e(TAG, "Exception in finishPairing for '$deviceIp'", e)
             Pair(false, e.message ?: "Unknown error")
         }
     }
@@ -85,23 +68,20 @@ class ChaquopyAppleTvRemoteService @Inject constructor() : AppleTvRemoteService 
     override suspend fun validateCredentials(deviceIp: String, credsJson: String): Pair<Boolean, String> = withContext(Dispatchers.IO) {
         try {
             val resultStr = module.callAttr("validate_credentials", deviceIp, credsJson).toString()
-            val json = JSONObject(resultStr)
-            val success = json.optString("status") == "success"
-            Pair(success, json.optString("message", ""))
+            JSONObject(resultStr).toStatusPair()
         } catch (e: Exception) {
-            Log.e("AppleTVRemote", "Exception validating credentials for '$deviceIp'", e)
+            Log.e(TAG, "Exception validating credentials for '$deviceIp'", e)
             Pair(false, e.message ?: "Unknown error")
         }
     }
 
-    override suspend fun cancelPairing() {
-        withContext(Dispatchers.IO) {
-            try {
-                module.callAttr("cancel_pairing")
-            } catch (e: Exception) {
-                Log.e("AppleTVRemote", "Exception on cancel", e)
-            }
+    override suspend fun cancelPairing() = withContext(Dispatchers.IO) {
+        try {
+            module.callAttr("cancel_pairing")
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception on cancel", e)
         }
+        Unit
     }
 
     override suspend fun sendCommand(deviceIp: String, credsJson: String, command: RemoteCommand): String = withContext(Dispatchers.IO) {
@@ -109,12 +89,36 @@ class ChaquopyAppleTvRemoteService @Inject constructor() : AppleTvRemoteService 
             val result = module.callAttr("send_command", deviceIp, credsJson, command.command)
             val resultString = normalizePythonResult(result.toString())
             if (resultString.startsWith("Error:")) {
-                Log.e("AppleTVRemote", resultString)
+                Log.e(TAG, resultString)
             }
             resultString
         } catch (e: Exception) {
-            Log.e("AppleTVRemote", "Exception executing Python command '${command.command}'", e)
+            Log.e(TAG, "Exception executing Python command '${command.command}'", e)
             "Error: ${e.message}"
         }
     }
+
+    private companion object {
+        private const val TAG = "AppleTVRemote"
+    }
 }
+
+private fun JSONArray.toDeviceList(): List<AppleTvDevice> = buildList {
+    for (i in 0 until length()) {
+        val jsonObject = getJSONObject(i)
+        if (jsonObject.has("error")) {
+            Log.e("AppleTVRemote", "Scan error: ${jsonObject.getString("error")}")
+            continue
+        }
+        add(
+            AppleTvDevice(
+                name = jsonObject.getString("name"),
+                address = jsonObject.getString("address"),
+                model = jsonObject.optString("model", "Unknown")
+            )
+        )
+    }
+}
+
+private fun JSONObject.toStatusPair(): Pair<Boolean, String> =
+    Pair(optString("status") == "success", optString("message", ""))

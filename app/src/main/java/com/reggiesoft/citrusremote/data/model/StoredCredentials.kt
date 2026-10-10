@@ -57,14 +57,10 @@ object StoredCredentials {
         predicate: (JSONObject) -> Boolean
     ): Boolean {
         val protocolCredentials = normalized.optJSONObject("protocol_credentials") ?: return false
-        val keys = protocolCredentials.keys()
-        while (keys.hasNext()) {
-            val entry = protocolCredentials.optJSONObject(keys.next()) ?: continue
-            if (predicate(entry)) {
-                return true
-            }
+        return protocolCredentials.keys().asSequence().any { key ->
+            val entry = protocolCredentials.optJSONObject(key) ?: return@any false
+            predicate(entry)
         }
-        return false
     }
 
     private fun isMockDevice(deviceIp: String): Boolean = deviceIp == MOCK_DEVICE_IP

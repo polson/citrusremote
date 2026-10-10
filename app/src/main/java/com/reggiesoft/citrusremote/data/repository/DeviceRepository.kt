@@ -18,31 +18,29 @@ class DeviceRepository @Inject constructor(
 ) {
     private val prefs: SharedPreferences = context.getSharedPreferences("AppleTVPrefs", Context.MODE_PRIVATE)
     companion object {
+        private const val TAG = "DeviceRepository"
         private const val LOCKOUT_UNTIL_PREFIX = "pairing_lockout_until_"
         private const val CREDENTIALS_PREFIX = "creds_"
         const val INVALID_CREDENTIALS_MESSAGE =
             "Error: Saved credentials are missing or invalid for this Apple TV. Pair again."
     }
 
-    suspend fun scanOnce(): List<AppleTvDevice> {
-        return remoteService.scanForDevices()
-    }
+    suspend fun scanOnce(): List<AppleTvDevice> = remoteService.scanForDevices()
 
-    suspend fun initiatePairing(deviceIp: String): Pair<Boolean, String> {
-        return remoteService.initiatePairing(deviceIp)
-    }
+    suspend fun initiatePairing(deviceIp: String): Pair<Boolean, String> =
+        remoteService.initiatePairing(deviceIp)
 
     suspend fun finishPairing(deviceIp: String, pin: String): Pair<Boolean, String> {
         val result = remoteService.finishPairing(deviceIp, pin)
         if (!result.first) {
-            Log.e("DeviceRepository", "finishPairing failed for device $deviceIp: ${result.second}")
+            Log.e(TAG, "finishPairing failed for device $deviceIp: ${result.second}")
             return result
         }
 
         val validation = remoteService.validateCredentials(deviceIp, result.second)
         if (!validation.first) {
             Log.e(
-                "DeviceRepository",
+                TAG,
                 "Credential validation failed after pairing device $deviceIp: ${validation.second}"
             )
             clearCredentials(deviceIp)
@@ -52,9 +50,7 @@ class DeviceRepository @Inject constructor(
         return result
     }
 
-    suspend fun cancelPairing() {
-        remoteService.cancelPairing()
-    }
+    suspend fun cancelPairing() = remoteService.cancelPairing()
 
     suspend fun sendCommand(deviceIp: String, command: RemoteCommand): String {
         val creds = getCredentials(deviceIp) ?: return INVALID_CREDENTIALS_MESSAGE
@@ -62,9 +58,7 @@ class DeviceRepository @Inject constructor(
         return clearCredentialsIfInvalid(deviceIp, result)
     }
 
-    fun hasUsableCredentials(deviceIp: String): Boolean {
-        return getCredentials(deviceIp) != null
-    }
+    fun hasUsableCredentials(deviceIp: String): Boolean = getCredentials(deviceIp) != null
 
     fun clearCredentials(deviceIp: String) {
         prefs.edit().remove(credentialsKey(deviceIp)).apply()
@@ -72,15 +66,15 @@ class DeviceRepository @Inject constructor(
 
     fun setPairingLockout(deviceIp: String, backOffSeconds: Long) {
         val lockoutUntilMillis = System.currentTimeMillis() + (backOffSeconds * 1000L)
-        prefs.edit().putLong("$LOCKOUT_UNTIL_PREFIX$deviceIp", lockoutUntilMillis).apply()
+        prefs.edit().putLong(lockoutKey(deviceIp), lockoutUntilMillis).apply()
     }
 
     fun clearPairingLockout(deviceIp: String) {
-        prefs.edit().remove("$LOCKOUT_UNTIL_PREFIX$deviceIp").apply()
+        prefs.edit().remove(lockoutKey(deviceIp)).apply()
     }
 
     fun getRemainingLockoutSeconds(deviceIp: String, nowMillis: Long = System.currentTimeMillis()): Long {
-        val lockoutUntilMillis = prefs.getLong("$LOCKOUT_UNTIL_PREFIX$deviceIp", 0L)
+        val lockoutUntilMillis = prefs.getLong(lockoutKey(deviceIp), 0L)
         val remainingMillis = lockoutUntilMillis - nowMillis
         if (remainingMillis <= 0L) {
             if (lockoutUntilMillis != 0L) {
@@ -119,7 +113,7 @@ class DeviceRepository @Inject constructor(
         return result
     }
 
-    private fun credentialsKey(deviceIp: String): String {
-        return "$CREDENTIALS_PREFIX$deviceIp"
-    }
+    private fun credentialsKey(deviceIp: String): String = "$CREDENTIALS_PREFIX$deviceIp"
+
+    private fun lockoutKey(deviceIp: String): String = "$LOCKOUT_UNTIL_PREFIX$deviceIp"
 }
