@@ -123,7 +123,7 @@ internal fun StatusBadge(
 }
 
 @Composable
-internal fun AppleTvInspiredRemote(
+internal fun RemoteControl(
     uiState: ControlUiState,
     onCommand: (RemoteCommand) -> Unit,
     onKeyboard: () -> Unit,

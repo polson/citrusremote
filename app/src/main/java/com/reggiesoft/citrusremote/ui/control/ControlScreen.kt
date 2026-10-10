@@ -160,7 +160,7 @@ internal fun ControlScreenContent(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            AppleTvInspiredRemote(
+            RemoteControl(
                 uiState = uiState,
                 onCommand = onCommand,
                 onKeyboard = onKeyboard
