@@ -34,16 +34,14 @@ async def simulate_keyboard_lifecycle(fake_atv):
                 companion_usecase.set_system_status(SystemStatus.Asleep)
                 companion_usecase.set_rti_focus_state(KeyboardFocusState.Unfocused)
                 text_field_opened = False
-                print("Mock Apple TV asleep")
-                sys.stdout.flush()
+                print("Mock Apple TV asleep", flush=True)
             last_power_state = False
             await asyncio.sleep(0.1)
             continue
 
         if not last_power_state:
             companion_usecase.set_system_status(SystemStatus.Awake)
-            print("Mock Apple TV awake")
-            sys.stdout.flush()
+            print("Mock Apple TV awake", flush=True)
         last_power_state = True
 
         if companion_state.has_paired and not text_field_opened:
@@ -51,27 +49,24 @@ async def simulate_keyboard_lifecycle(fake_atv):
             companion_usecase.set_rti_text("")
             companion_usecase.set_rti_focus_state(KeyboardFocusState.Focused)
             text_field_opened = True
-            print("Mock text field opened")
-            sys.stdout.flush()
+            print("Mock text field opened", flush=True)
 
         select_pressed = mrp_state.last_button_pressed == "select"
         if text_field_opened and select_pressed:
             await asyncio.sleep(0.25)
             companion_usecase.set_rti_focus_state(KeyboardFocusState.Unfocused)
-            print("Mock text field submitted")
-            sys.stdout.flush()
+            print("Mock text field submitted", flush=True)
             mrp_state.last_button_pressed = None
             await asyncio.sleep(1.0)
             companion_usecase.set_rti_text("")
             companion_usecase.set_rti_focus_state(KeyboardFocusState.Focused)
-            print("Mock text field reopened")
-            sys.stdout.flush()
+            print("Mock text field reopened", flush=True)
 
         await asyncio.sleep(0.1)
 
 
 async def main():
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
 
     orig_create_server = loop.create_server
     service_start_order = iter(_FIXED_PORTS.values())
@@ -122,11 +117,10 @@ async def main():
 
     await fake_atv.start()
     asyncio.create_task(simulate_keyboard_lifecycle(fake_atv))
-    print("Mock Apple TV running...")
-    print(f"Companion Port: {_FIXED_PORTS[Protocol.Companion]}")
-    print(f"MRP Port: {_FIXED_PORTS[Protocol.MRP]}")
-    print("PAIRING PIN: 1111")
-    sys.stdout.flush()
+    print("Mock Apple TV running...", flush=True)
+    print(f"Companion Port: {_FIXED_PORTS[Protocol.Companion]}", flush=True)
+    print(f"MRP Port: {_FIXED_PORTS[Protocol.MRP]}", flush=True)
+    print("PAIRING PIN: 1111", flush=True)
 
     while True:
         await asyncio.sleep(3600)

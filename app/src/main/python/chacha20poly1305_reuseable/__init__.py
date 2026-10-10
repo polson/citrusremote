@@ -6,13 +6,11 @@ __version__ = "0.0.4"
 
 
 import os
-import typing
-from typing import Union
 
 from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
 
 
-class ChaCha20Poly1305Reusable(object):
+class ChaCha20Poly1305Reusable:
     """A reuseable version of ChaCha20Poly1305.
 
     This is modified version of ChaCha20Poly1305 that does not recreate
@@ -26,7 +24,7 @@ class ChaCha20Poly1305Reusable(object):
     _KEY_LEN = 32
     _NONCE_LEN = 12
 
-    def __init__(self, key: Union[bytes, bytearray]) -> None:
+    def __init__(self, key: bytes | bytearray) -> None:
         if not isinstance(key, (bytes, bytearray)):
             raise TypeError("key must be bytes or bytearay")
 
@@ -42,13 +40,13 @@ class ChaCha20Poly1305Reusable(object):
 
     @classmethod
     def generate_key(cls) -> bytes:
-        return os.urandom(ChaCha20Poly1305Reusable._KEY_LEN)
+        return os.urandom(cls._KEY_LEN)
 
     def encrypt(
         self,
-        nonce: Union[bytes, bytearray],
+        nonce: bytes | bytearray,
         data: bytes,
-        associated_data: typing.Optional[bytes],
+        associated_data: bytes | None,
     ) -> bytes:
         if associated_data is None:
             associated_data = b""
@@ -62,9 +60,9 @@ class ChaCha20Poly1305Reusable(object):
 
     def decrypt(
         self,
-        nonce: Union[bytes, bytearray],
+        nonce: bytes | bytearray,
         data: bytes,
-        associated_data: typing.Optional[bytes],
+        associated_data: bytes | None,
     ) -> bytes:
         if associated_data is None:
             associated_data = b""
@@ -74,7 +72,7 @@ class ChaCha20Poly1305Reusable(object):
 
     def _check_params(
         self,
-        nonce: Union[bytes, bytearray],
+        nonce: bytes | bytearray,
         data: bytes,
         associated_data: bytes,
     ) -> None:

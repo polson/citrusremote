@@ -1,10 +1,12 @@
 import asyncio
+import contextlib
+from dataclasses import dataclass
 import inspect
 import ipaddress
 import json
 import logging
 import threading
-import traceback
+from typing import Any
 import warnings
 
 import pyatv
@@ -25,7 +27,7 @@ _loop_thread = None
 _CREDENTIALS_VERSION = 2
 _PRIMARY_PROTOCOL = pyatv.const.Protocol.Companion
 _DEFAULT_UNMUTE_VOLUME = 50.0
-_last_known_volume = {}
+_last_known_volume: dict[str, float] = {}
 _LEGACY_MOCK_CREDENTIAL_PREFIX = "TEST_MOCK_CREDENTIALS_"
 _MOCK_DEVICE_IP = "10.0.2.2"
 _MUTE_VERIFY_DELAY_SECONDS = 0.25
@@ -103,13 +105,21 @@ def _run_json(coro):
         return _error_json(e)
 
 
+@contextlib.asynccontextmanager
+async def _connect_apple_tv(conf):
+    atv = await pyatv.connect(conf, asyncio.get_running_loop())
+    try:
+        yield atv
+    finally:
+        atv.close()
 
+
+@dataclass(slots=True)
 class _PairingSession:
-    def __init__(self, handler, protocol, ip_address, is_mock):
-        self.handler = handler
-        self.protocol = protocol
-        self.ip_address = ip_address
-        self.is_mock = is_mock
+    handler: Any
+    protocol: pyatv.const.Protocol
+    ip_address: str
+    is_mock: bool
 
     async def close(self):
         if not self.handler:
@@ -122,7 +132,7 @@ class _PairingSession:
             pass
 
 
-_active_session = None
+_active_session: _PairingSession | None = None
 
 
 def _is_mock_device(ip_address):
@@ -154,36 +164,31 @@ async def _discover_configuration(ip_address):
     loop = asyncio.get_running_loop()
     if _is_mock_device(ip_address):
         return [_create_mock_configuration()]
-    if ip_address:
-        return await pyatv.scan(loop, hosts=[ip_address])
-    return await pyatv.scan(loop)
+    hosts = [ip_address] if ip_address else None
+    return await pyatv.scan(loop, hosts=hosts)
 
 
 def _protocol_from_identifier(protocol_identifier):
-    if protocol_identifier is None:
-        return None
-
-    if isinstance(protocol_identifier, pyatv.const.Protocol):
-        return protocol_identifier
-
-    if isinstance(protocol_identifier, int):
-        return pyatv.const.Protocol(protocol_identifier)
-
-    if isinstance(protocol_identifier, str):
-        stripped = protocol_identifier.strip()
-        if not stripped:
+    match protocol_identifier:
+        case None:
             return None
-        if stripped.isdigit():
-            return pyatv.const.Protocol(int(stripped))
-
-        try:
-            return pyatv.const.Protocol[stripped]
-        except KeyError:
-            lowered = stripped.lower()
-            for protocol in pyatv.const.Protocol:
-                if protocol.name.lower() == lowered:
-                    return protocol
-
+        case pyatv.const.Protocol() as protocol:
+            return protocol
+        case int(protocol_val):
+            return pyatv.const.Protocol(protocol_val)
+        case str(protocol_str):
+            stripped = protocol_str.strip()
+            if not stripped:
+                return None
+            if stripped.isdigit():
+                return pyatv.const.Protocol(int(stripped))
+            try:
+                return pyatv.const.Protocol[stripped]
+            except KeyError:
+                lowered = stripped.lower()
+                for protocol in pyatv.const.Protocol:
+                    if protocol.name.lower() == lowered:
+                        return protocol
     raise ValueError(f"Unsupported protocol identifier: {protocol_identifier}")
 
 
@@ -255,19 +260,16 @@ def _apply_credentials(conf, credentials_json, preferred_protocol=_PRIMARY_PROTO
     if not parsed_credentials:
         return []
 
-    apply_order = []
-    if preferred_protocol in parsed_credentials:
-        apply_order.append(preferred_protocol)
-    apply_order.extend(
-        protocol for protocol in parsed_credentials if protocol not in apply_order
+    apply_order = (
+        [preferred_protocol] + [p for p in parsed_credentials if p != preferred_protocol]
+        if preferred_protocol in parsed_credentials
+        else list(parsed_credentials.keys())
     )
-
-    applied_protocols = []
-    for protocol in apply_order:
-        if conf.set_credentials(protocol, parsed_credentials[protocol]):
-            applied_protocols.append(protocol)
-
-    return applied_protocols
+    return [
+        protocol
+        for protocol in apply_order
+        if conf.set_credentials(protocol, parsed_credentials[protocol])
+    ]
 
 
 async def _build_configuration(ip_address="", credentials_json=""):
@@ -326,14 +328,15 @@ def _select_pairing_protocol(conf):
 
 
 def _format_model_name(conf):
-    if not hasattr(conf, "device_info") or not hasattr(conf.device_info, "model"):
+    device_info = getattr(conf, "device_info", None)
+    if not device_info or not hasattr(device_info, "model"):
         return "Unknown Apple TV"
 
-    model = conf.device_info.model
+    model = device_info.model
     raw_model = model.name if hasattr(model, "name") else str(model)
     model_name = _MODEL_MAP.get(raw_model)
-    if not model_name and hasattr(conf.device_info, "raw_model") and conf.device_info.raw_model:
-        model_name = _MODEL_MAP.get(str(conf.device_info.raw_model))
+    if not model_name and getattr(device_info, "raw_model", None):
+        model_name = _MODEL_MAP.get(str(device_info.raw_model))
     if not model_name:
         raw_model_lower = raw_model.lower()
         for k, v in _MODEL_MAP.items():
@@ -347,21 +350,16 @@ def _format_model_name(conf):
 async def _async_scan_for_devices():
     loop = asyncio.get_running_loop()
     atvs = await pyatv.scan(loop, timeout=3)
-
-    devices = []
-    for conf in atvs:
-        if (
-            hasattr(conf, "device_info")
-            and conf.device_info.operating_system == pyatv.const.OperatingSystem.TvOS
-        ):
-            devices.append(
-                {
-                    "name": conf.name,
-                    "address": str(conf.address),
-                    "model": _format_model_name(conf),
-                }
-            )
-
+    devices = [
+        {
+            "name": conf.name,
+            "address": str(conf.address),
+            "model": _format_model_name(conf),
+        }
+        for conf in atvs
+        if getattr(getattr(conf, "device_info", None), "operating_system", None)
+        == pyatv.const.OperatingSystem.TvOS
+    ]
     return json.dumps(devices)
 
 
@@ -455,7 +453,6 @@ async def _async_finish_pairing(device_ip, pin_code):
     except Exception as e:
         await _reset_pairing_state(close_handler=True)
         _LOGGER.exception("Pairing error: %s", e)
-        _LOGGER.debug("Traceback: %s", traceback.format_exc())
         error_msg = str(e)
         cause = e.__cause__
         if cause and (
@@ -492,16 +489,12 @@ def cancel_pairing():
 
 
 async def _async_validate_credentials(ip_address, credentials_json=""):
-    loop = asyncio.get_running_loop()
     conf, error = await _build_configuration(ip_address, credentials_json)
     if error:
         return _error_json(error)
 
-    atv = await pyatv.connect(conf, loop)
-    try:
+    async with _connect_apple_tv(conf):
         return _success_json(message=f"Validated credentials for {conf.name}")
-    finally:
-        atv.close()
 
 
 def validate_credentials(ip_address="", credentials_json=""):
@@ -528,19 +521,58 @@ _COMMAND_MAP = {
 }
 
 
+async def _handle_mute(atv, conf, ip_address):
+    if not (
+        atv.features.in_state(pyatv.const.FeatureState.Available, pyatv.const.FeatureName.Volume)
+        and atv.features.in_state(pyatv.const.FeatureState.Available, pyatv.const.FeatureName.SetVolume)
+    ):
+        discovered = [s.protocol.name for s in conf.services]
+        return (
+            "Error: mute requires readable and writable volume support. "
+            f"Discovered protocols: {', '.join(discovered)}."
+        )
+
+    cache_key = ip_address or str(conf.address)
+    current = atv.audio.volume
+    if current <= _MUTE_ZERO_THRESHOLD and cache_key not in _last_known_volume:
+        return (
+            "Error: mute needs a known starting volume, but Apple TV did not "
+            "report one. Use volume up/down once, then try mute again."
+        )
+
+    if current > 0:
+        _last_known_volume[cache_key] = current
+        await atv.audio.set_volume(0)
+        await asyncio.sleep(_MUTE_VERIFY_DELAY_SECONDS)
+        if atv.audio.volume > _MUTE_ZERO_THRESHOLD:
+            return (
+                "Error: mute command was acknowledged, but Apple TV volume did "
+                "not reach zero. This setup may not support absolute volume mute."
+            )
+        return f"Success: Muted {conf.name}"
+
+    restored_volume = _last_known_volume.get(cache_key, _DEFAULT_UNMUTE_VOLUME)
+    await atv.audio.set_volume(restored_volume)
+    await asyncio.sleep(_MUTE_VERIFY_DELAY_SECONDS)
+    if atv.audio.volume <= _MUTE_ZERO_THRESHOLD:
+        return (
+            "Error: unmute command was acknowledged, but Apple TV volume did "
+            "not rise from zero."
+        )
+    return f"Success: Unmuted {conf.name}"
+
+
 async def _async_send_command(ip_address, credentials_json, command):
-    if command not in _COMMAND_MAP:
+    command_spec = _COMMAND_MAP.get(command)
+    if command_spec is None:
         return f"Error: Unknown command '{command}'"
 
-    loop = asyncio.get_running_loop()
     conf, error = await _build_configuration(ip_address, credentials_json)
     if error:
         return error
 
-    atv = await pyatv.connect(conf, loop)
-
-    try:
-        method_name, feature_name, input_action = _COMMAND_MAP[command]
+    async with _connect_apple_tv(conf) as atv:
+        method_name, feature_name, input_action = command_spec
 
         if feature_name and not atv.features.in_state(
             pyatv.const.FeatureState.Available, feature_name
@@ -549,45 +581,7 @@ async def _async_send_command(ip_address, credentials_json, command):
             return f"Error: {command} feature is not available. Discovered protocols: {', '.join(discovered)}."
 
         if command == "mute":
-            if not atv.features.in_state(
-                pyatv.const.FeatureState.Available, pyatv.const.FeatureName.Volume
-            ) or not atv.features.in_state(
-                pyatv.const.FeatureState.Available, pyatv.const.FeatureName.SetVolume
-            ):
-                discovered = [s.protocol.name for s in conf.services]
-                return (
-                    "Error: mute requires readable and writable volume support. "
-                    f"Discovered protocols: {', '.join(discovered)}."
-                )
-
-            cache_key = ip_address or str(conf.address)
-            current = atv.audio.volume
-            if current <= _MUTE_ZERO_THRESHOLD and cache_key not in _last_known_volume:
-                return (
-                    "Error: mute needs a known starting volume, but Apple TV did not "
-                    "report one. Use volume up/down once, then try mute again."
-                )
-
-            if current > 0:
-                _last_known_volume[cache_key] = current
-                await atv.audio.set_volume(0)
-                await asyncio.sleep(_MUTE_VERIFY_DELAY_SECONDS)
-                if atv.audio.volume > _MUTE_ZERO_THRESHOLD:
-                    return (
-                        "Error: mute command was acknowledged, but Apple TV volume did "
-                        "not reach zero. This setup may not support absolute volume mute."
-                    )
-                return f"Success: Muted {conf.name}"
-
-            restored_volume = _last_known_volume.get(cache_key, _DEFAULT_UNMUTE_VOLUME)
-            await atv.audio.set_volume(restored_volume)
-            await asyncio.sleep(_MUTE_VERIFY_DELAY_SECONDS)
-            if atv.audio.volume <= _MUTE_ZERO_THRESHOLD:
-                return (
-                    "Error: unmute command was acknowledged, but Apple TV volume did "
-                    "not rise from zero."
-                )
-            return f"Success: Unmuted {conf.name}"
+            return await _handle_mute(atv, conf, ip_address)
 
         remote_method = getattr(atv.remote_control, method_name)
         if input_action is None:
@@ -595,8 +589,6 @@ async def _async_send_command(ip_address, credentials_json, command):
         else:
             await remote_method(action=input_action)
         return f"Success: Sent {command} to {conf.name}"
-    finally:
-        atv.close()
 
 
 def send_command(ip_address="", credentials_json="", command=""):
