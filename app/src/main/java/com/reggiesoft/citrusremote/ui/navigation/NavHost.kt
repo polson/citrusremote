@@ -18,7 +18,7 @@ import java.net.URLDecoder
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-object Routes {
+internal object Routes {
     const val SPLASH = "splash"
     const val DISCOVERY = "discovery"
     const val PAIRING = "pairing/{deviceIp}/{deviceName}"

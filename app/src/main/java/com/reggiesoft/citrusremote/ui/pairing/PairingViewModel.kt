@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.reggiesoft.citrusremote.data.repository.DeviceRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.Locale
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,7 +38,7 @@ class PairingViewModel @Inject constructor(
 
     private var currentDeviceIp: String = ""
     private var currentDeviceName: String = ""
-    private var backOffJob: kotlinx.coroutines.Job? = null
+    private var backOffJob: Job? = null
 
     fun initiatePairing(deviceIp: String, deviceName: String) {
         backOffJob?.cancel()
@@ -112,7 +114,7 @@ class PairingViewModel @Inject constructor(
         backOffJob = viewModelScope.launch {
             var seconds = initialSeconds
             while (seconds > 0L) {
-                kotlinx.coroutines.delay(1000L)
+                delay(1000L)
                 seconds--
                 val currentState = _uiState.value
                 if (currentState is PairingUiState.Error && currentState.isBackOff) {
