@@ -39,7 +39,7 @@ import com.reggiesoft.citrusremote.data.model.AppleTvDevice
 import com.valentinilk.shimmer.shimmer
 
 @Composable
-fun DeviceListShimmerItem(
+fun DeviceShimmerItem(
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -115,7 +115,7 @@ fun DeviceListShimmerItem(
 }
 
 @Composable
-fun EmptyDevicesView(
+fun EmptyDeviceList(
     onScanClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {

@@ -175,7 +175,7 @@ internal fun DiscoveryScreenContent(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             items(3) {
-                                DeviceListShimmerItem()
+                                DeviceShimmerItem()
                             }
                             item {
                                 Text(
@@ -189,7 +189,7 @@ internal fun DiscoveryScreenContent(
                     }
                     is DiscoveryUiState.Success -> {
                         if (state.devices.isEmpty()) {
-                            EmptyDevicesView(onScanClick = onScan)
+                            EmptyDeviceList(onScanClick = onScan)
                         } else {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
