@@ -69,6 +69,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.reggiesoft.citrusremote.data.model.DEFAULT_REMOTE_WIDTH
+import com.reggiesoft.citrusremote.data.model.MINIMUM_REMOTE_WIDTH
 import com.reggiesoft.citrusremote.data.model.RemoteCommand
 import com.reggiesoft.citrusremote.ui.theme.CITRUS_CREAM_SHADE
 import com.reggiesoft.citrusremote.ui.theme.CITRUS_DEEP_TEAL
@@ -136,7 +138,7 @@ internal fun RemoteControl(
         contentAlignment = Alignment.TopCenter
     ) {
         val compact = maxWidth < 360.dp
-        val remoteWidth = if (compact) { 208.dp } else { 228.dp }
+        val remoteWidth = if (compact) { MINIMUM_REMOTE_WIDTH.dp } else { DEFAULT_REMOTE_WIDTH.dp }
         val clickPadSize = if (compact) { 164.dp } else { 184.dp }
         val shellShape = RoundedCornerShape(if (compact) { 34.dp } else { 40.dp })
         val controlSpacing = if (compact) { 12.dp } else { 14.dp }
