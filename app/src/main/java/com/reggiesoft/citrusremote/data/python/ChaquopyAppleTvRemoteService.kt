@@ -1,10 +1,12 @@
 package com.reggiesoft.citrusremote.data.python
 
 import android.util.Log
+import com.chaquo.python.PyObject
 import com.chaquo.python.Python
 import com.reggiesoft.citrusremote.data.model.AppleTvDevice
 import com.reggiesoft.citrusremote.data.model.RemoteCommand
 import com.reggiesoft.citrusremote.data.model.StoredCredentials
+import com.reggiesoft.citrusremote.data.preferences.MockAppleTvPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -13,10 +15,20 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class ChaquopyAppleTvRemoteService @Inject constructor() : AppleTvRemoteService {
+class ChaquopyAppleTvRemoteService @Inject constructor(
+    private val mockAppleTvPreferences: MockAppleTvPreferences
+) : AppleTvRemoteService {
 
     private val python by lazy { Python.getInstance() }
-    private val module by lazy { python.getModule("appletv_remote") }
+    private val module: PyObject
+        get() {
+            val pythonModule = python.getModule("appletv_remote")
+            pythonModule.callAttr(
+                "set_mock_server_address",
+                mockAppleTvPreferences.serverAddress
+            )
+            return pythonModule
+        }
 
     override suspend fun scanForDevices(): List<AppleTvDevice> = withContext(Dispatchers.IO) {
         try {

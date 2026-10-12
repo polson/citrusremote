@@ -4,8 +4,10 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
 import com.reggiesoft.citrusremote.data.model.AppleTvDevice
+import com.reggiesoft.citrusremote.data.model.MockAppleTv
 import com.reggiesoft.citrusremote.data.model.RemoteCommand
 import com.reggiesoft.citrusremote.data.model.StoredCredentials
+import com.reggiesoft.citrusremote.data.preferences.MockAppleTvPreferences
 import com.reggiesoft.citrusremote.data.python.AppleTvRemoteService
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -14,6 +16,7 @@ import javax.inject.Singleton
 @Singleton
 class DeviceRepository @Inject constructor(
     private val remoteService: AppleTvRemoteService,
+    private val mockAppleTvPreferences: MockAppleTvPreferences,
     @ApplicationContext context: Context
 ) {
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -24,6 +27,17 @@ class DeviceRepository @Inject constructor(
     }
 
     suspend fun scanOnce(): List<AppleTvDevice> = remoteService.scanForDevices()
+
+    fun getMockServerAddress(): String = mockAppleTvPreferences.serverAddress
+
+    fun setMockServerAddress(address: String) {
+        val normalizedAddress = address.trim()
+        if (normalizedAddress != mockAppleTvPreferences.serverAddress) {
+            clearCredentials(MockAppleTv.DEVICE_ID)
+            clearPairingLockout(MockAppleTv.DEVICE_ID)
+        }
+        mockAppleTvPreferences.setServerAddress(normalizedAddress)
+    }
 
     suspend fun initiatePairing(deviceIp: String): Pair<Boolean, String> =
         remoteService.initiatePairing(deviceIp)

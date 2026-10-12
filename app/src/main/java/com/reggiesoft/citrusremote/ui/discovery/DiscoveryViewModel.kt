@@ -43,6 +43,12 @@ class DiscoveryViewModel @Inject constructor(
 
     fun hasUsableCredentials(deviceIp: String): Boolean = repository.hasUsableCredentials(deviceIp)
 
+    fun getMockServerAddress(): String = repository.getMockServerAddress()
+
+    fun setMockServerAddress(address: String) {
+        repository.setMockServerAddress(address)
+    }
+
     fun isPairingLocked(deviceIp: String, nowMillis: Long = System.currentTimeMillis()): Boolean =
         repository.isPairingLocked(deviceIp, nowMillis)
 }

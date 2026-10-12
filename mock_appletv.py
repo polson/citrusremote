@@ -1,12 +1,19 @@
 import asyncio
 import logging
 import sys
+from pathlib import Path
 
 logging.basicConfig(
     level=logging.DEBUG, format="%(name)s - %(levelname)s - %(message)s"
 )
 
-sys.path.insert(0, ".venv/pyatv_repo")
+_PYATV_REPOSITORY = Path(__file__).resolve().parent / ".venv" / "pyatv_repo"
+if not _PYATV_REPOSITORY.is_dir():
+    raise SystemExit(
+        "pyatv source is missing. Follow the mock server setup steps in README.md."
+    )
+
+sys.path.insert(0, str(_PYATV_REPOSITORY))
 
 from tests.fake_device import FakeAppleTV
 from pyatv.const import KeyboardFocusState, Protocol
@@ -116,10 +123,22 @@ async def main():
     )
 
     await fake_atv.start()
+    companion_port = fake_atv.get_port(Protocol.Companion)
+    mrp_port = fake_atv.get_port(Protocol.MRP)
+    if (
+        companion_port != _FIXED_PORTS[Protocol.Companion]
+        or mrp_port != _FIXED_PORTS[Protocol.MRP]
+    ):
+        await fake_atv.stop()
+        raise RuntimeError(
+            f"Mock service ports are Companion={companion_port}, MRP={mrp_port}; "
+            "the app expects Companion=49152 and MRP=49153."
+        )
+
     asyncio.create_task(simulate_keyboard_lifecycle(fake_atv))
     print("Mock Apple TV running...", flush=True)
-    print(f"Companion Port: {_FIXED_PORTS[Protocol.Companion]}", flush=True)
-    print(f"MRP Port: {_FIXED_PORTS[Protocol.MRP]}", flush=True)
+    print(f"Companion Port: {companion_port}", flush=True)
+    print(f"MRP Port: {mrp_port}", flush=True)
     print("PAIRING PIN: 1111", flush=True)
 
     while True:

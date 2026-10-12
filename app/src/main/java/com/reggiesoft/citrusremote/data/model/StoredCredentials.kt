@@ -4,7 +4,6 @@ import org.json.JSONObject
 
 object StoredCredentials {
     private const val CURRENT_VERSION = 2
-    private const val MOCK_DEVICE_IP = "10.0.2.2"
     private const val MOCK_CREDENTIAL_PREFIX = "TEST_MOCK_CREDENTIALS_"
     private const val KEY_VERSION = "version"
     private const val KEY_PRIMARY_PROTOCOL = "primary_protocol"
@@ -72,7 +71,7 @@ object StoredCredentials {
         }
     }
 
-    private fun String.isMockDevice(): Boolean = this == MOCK_DEVICE_IP
+    private fun String.isMockDevice(): Boolean = this == MockAppleTv.DEVICE_ID
 
     private fun JSONObject.normalize(): JSONObject {
         val protocolCredentials = optJSONObject(KEY_PROTOCOL_CREDENTIALS)

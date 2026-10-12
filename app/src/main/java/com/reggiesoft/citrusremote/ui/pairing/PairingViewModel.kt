@@ -3,6 +3,7 @@ package com.reggiesoft.citrusremote.ui.pairing
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.reggiesoft.citrusremote.data.model.MockAppleTv
 import com.reggiesoft.citrusremote.data.repository.DeviceRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.Locale
@@ -154,6 +155,13 @@ class PairingViewModel @Inject constructor(
             normalized.contains("connect call failed", ignoreCase = true) ||
             normalized.contains("unreachable", ignoreCase = true)
         ) {
+            if (currentDeviceIp == MockAppleTv.DEVICE_ID) {
+                return PairingUiState.Error(
+                    message = "Mock Apple TV is unreachable. Check that python mock_appletv.py is running and that the mock server address is correct. PIN entry unlocks after port 49152 responds.",
+                    canRetryInitiating = true
+                )
+            }
+
             return PairingUiState.Error(
                 message = "Could not reach Apple TV. Check that both devices are on the same network, then retry.",
                 canRetryInitiating = true
@@ -177,6 +185,13 @@ class PairingViewModel @Inject constructor(
         if (normalized.contains("companion service is not available", ignoreCase = true)) {
             return PairingUiState.Error(
                 message = "This Apple TV did not expose the Companion service CitrusRemote needs for buttons and keyboard input. Make sure Apple TV is awake, on the same network, and then retry pairing.",
+                canRetryInitiating = true
+            )
+        }
+
+        if (currentDeviceIp == MockAppleTv.DEVICE_ID) {
+            return PairingUiState.Error(
+                message = "Mock pairing failed. Check that the mock server address is a valid IPv4 address and that the server is running.",
                 canRetryInitiating = true
             )
         }

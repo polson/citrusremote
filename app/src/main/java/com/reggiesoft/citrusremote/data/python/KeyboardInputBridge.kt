@@ -1,17 +1,29 @@
 package com.reggiesoft.citrusremote.data.python
 
 import android.util.Log
+import com.chaquo.python.PyObject
 import com.chaquo.python.Python
+import com.reggiesoft.citrusremote.data.preferences.MockAppleTvPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class KeyboardInputBridge @Inject constructor() {
+class KeyboardInputBridge @Inject constructor(
+    private val mockAppleTvPreferences: MockAppleTvPreferences
+) {
 
     private val python by lazy { Python.getInstance() }
-    private val module by lazy { python.getModule("appletv_keyboard") }
+    private val module: PyObject
+        get() {
+            val remoteModule = python.getModule("appletv_remote")
+            remoteModule.callAttr(
+                "set_mock_server_address",
+                mockAppleTvPreferences.serverAddress
+            )
+            return python.getModule("appletv_keyboard")
+        }
 
     suspend fun openKeyboardSession(deviceIp: String, credsJson: String): String =
         withContext(Dispatchers.IO) { runBridgeCall("open_keyboard_session", deviceIp, credsJson) }

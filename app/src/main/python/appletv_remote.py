@@ -29,6 +29,7 @@ _DEFAULT_UNMUTE_VOLUME = 50.0
 _last_known_volume: dict[str, float] = {}
 _LEGACY_MOCK_CREDENTIAL_PREFIX = "TEST_MOCK_CREDENTIALS_"
 _MOCK_DEVICE_IP = "10.0.2.2"
+_mock_server_address = _MOCK_DEVICE_IP
 _MUTE_VERIFY_DELAY_SECONDS = 0.25
 _MUTE_ZERO_THRESHOLD = 1.0
 
@@ -137,6 +138,11 @@ def _is_mock_device(ip_address):
     return ip_address == _MOCK_DEVICE_IP
 
 
+def set_mock_server_address(server_address):
+    global _mock_server_address
+    _mock_server_address = str(server_address)
+
+
 async def _reset_pairing_state(close_handler=False):
     global _active_session
     session = _active_session
@@ -146,7 +152,9 @@ async def _reset_pairing_state(close_handler=False):
 
 
 def _create_mock_configuration():
-    conf = pyatv.conf.AppleTV(ipaddress.IPv4Address(_MOCK_DEVICE_IP), "Mock Apple TV")
+    conf = pyatv.conf.AppleTV(
+        ipaddress.IPv4Address(_mock_server_address), "Mock Apple TV"
+    )
     conf.add_service(
         pyatv.conf.ManualService(
             "companion-id", pyatv.const.Protocol.Companion, 49152, {}

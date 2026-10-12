@@ -61,16 +61,26 @@ CitrusRemote builds with standard Gradle:
 
 To test pairing and navigation without a physical Apple TV:
 
-1. **Start the Mock Server**:
+1. **Set up the mock server once** from the repository root:
+   ```bash
+   python3.12 -m venv .venv
+   source .venv/bin/activate
+   git clone https://github.com/postlund/pyatv.git .venv/pyatv_repo
+   python -m pip install -e .venv/pyatv_repo
+   ```
+
+2. **Start the Mock Server** from the repository root:
    ```bash
    source .venv/bin/activate
    python mock_appletv.py
    ```
-   *The script will output running status and dynamically assigned mock ports.*
+   Leave it running. It must report Companion port `49152` and PIN `1111`.
 
-2. **Connect via the Android Emulator**:
-   - Run the debug build on the Android Emulator.
+3. **Connect a device**:
+   - Run the debug build on an Android Emulator or physical Android phone.
    - Navigate to the **Discovered Devices** screen.
    - Tap the **Wrench/Build icon** in the top right corner to inject a "Mock Apple TV (Dev)" device.
-   - Tap **Mock Apple TV (Dev)** to connect via the emulator's `10.0.2.2` bridge.
-   - When prompted for the PIN, enter `1111`.
+   - Keep the mock server address at `10.0.2.2` to connect through the emulator bridge.
+   - Once pairing connects, enter PIN `1111`. The PIN field stays disabled until the mock Companion service responds.
+
+   To use a physical Android phone, enter the computer's local IPv4 address in the mock server dialog. Keep the phone and computer on the same Wi-Fi network and allow incoming connections to ports `49152` and `49153` on the computer.
