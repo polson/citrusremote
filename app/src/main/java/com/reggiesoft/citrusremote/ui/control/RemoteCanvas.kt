@@ -2,6 +2,7 @@ package com.reggiesoft.citrusremote.ui.control
 
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
@@ -98,6 +99,7 @@ internal fun RemoteCanvas(
                 if (isEditing) {
                     RemotePlacementOutline(
                         scale = scale,
+                        aspectRatio = area.baseWidth / area.baseHeight,
                         onMove = { delta ->
                             onPlacementChange(
                                 area.move(placement = placement, dx = delta.x / density, dy = delta.y / density)
@@ -135,6 +137,7 @@ internal fun RemoteCanvas(
 @Composable
 private fun RemotePlacementOutline(
     scale: Float,
+    aspectRatio: Float,
     onMove: (Offset) -> Unit,
     onResize: (Offset) -> Unit
 ) {
@@ -173,10 +176,19 @@ private fun RemotePlacementOutline(
                             }
                         )
                     }
-                    .pointerInput(Unit) {
-                        detectDragGestures { change, delta ->
-                            change.consume()
-                            move(delta)
+                    .pointerInput(aspectRatio) {
+                        detectTransformGestures { _, pan, zoom, _ ->
+                            if (zoom != 1f) {
+                                val widthChange = size.width * (zoom - 1f)
+                                resize(
+                                    Offset(
+                                        x = widthChange,
+                                        y = widthChange / aspectRatio
+                                    )
+                                )
+                            } else {
+                                move(pan)
+                            }
                         }
                     }
             )

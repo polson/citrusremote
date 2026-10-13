@@ -150,7 +150,7 @@ class RemotePlacementTest {
         val draftBounds = compose.onNodeWithTag("remote-move").fetchSemanticsNode().boundsInRoot
         restoration.emulateSavedInstanceStateRestore()
         assertEquals(draftBounds, compose.onNodeWithTag("remote-move").fetchSemanticsNode().boundsInRoot)
-        compose.onNodeWithText("Cancel").performClick()
+        compose.onNodeWithContentDescription("Cancel repositioning").performClick()
         compose.runOnIdle { assertEquals(initialPlacement, placement.value) }
         compose.onNodeWithText("Reposition").performClick()
         compose.onNodeWithText("Reset").performClick()
