@@ -54,9 +54,9 @@ class PairingViewModelTest {
 
     @Test
     fun `initiatePairing generic failure sets error state with generic message`() = runTest {
-        coEvery { repository.initiatePairing("10.0.2.2") } returns Pair(false, "Unknown pairing failure")
+        coEvery { repository.initiatePairing("192.168.1.42") } returns Pair(false, "Unknown pairing failure")
 
-        viewModel.initiatePairing("10.0.2.2", "Mock Apple TV")
+        viewModel.initiatePairing("192.168.1.42", "Living Room Apple TV")
 
         val state = viewModel.uiState.value
         assertTrue("Expected Error but was $state", state is PairingUiState.Error)
