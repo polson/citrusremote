@@ -6,32 +6,35 @@
 
 CitrusRemote is a free, open-source Android remote control for Apple TV devices. Privacy and data security are core design principles of the application.
 
-## 1. Zero Data Collection
+## 1. Information Sent to ReggieSoft
 
-CitrusRemote does not collect, record, track, transmit, or sell personal information of any kind. There are:
+CitrusRemote has no accounts or developer-operated backend. The app does not send app usage, device details, pairing information, or keyboard content to ReggieSoft, advertising networks, or analytics services. There are:
 - No user accounts or login systems
 - No telemetry or analytics frameworks
 - No advertising networks or tracking SDKs
 - No background tracking or location monitoring
 
+To provide remote-control features, CitrusRemote communicates directly with Apple TV devices you select on your local network. Those local transfers are described below.
+
 ## 2. Local Network Communication
 
-All communication occurs strictly within your local Wi-Fi or Ethernet network:
-- **Device Discovery**: The app broadcasts ZeroConf/mDNS queries on your local network to discover Apple TV units.
-- **Apple TV Control**: The app connects directly to the local IP address of your selected Apple TV using Apple's Companion protocol. No connection traffic or device metadata is routed to external servers.
+Remote-control communication occurs on your local Wi-Fi or Ethernet network:
+- **Device Discovery**: The app uses ZeroConf/mDNS to discover Apple TV devices. It reads each discovered device's name, model, and local IP address to show it in the app. These details are not uploaded to a server.
+- **Pairing and Control**: When you start pairing, the PIN displayed by Apple TV is used in the Companion pairing exchange. Pairing data and the resulting credentials are exchanged directly with the selected Apple TV. After pairing, remote commands use the authenticated Companion connection, which encrypts messages using keys shared between the app and Apple TV. CitrusRemote does not use a cloud relay.
 
 ## 3. Pairing Credentials & Local Storage
 
-When pairing with an Apple TV, authentication tokens are generated:
-- All credentials are saved strictly on-device in private Android app storage (`AppleTVPrefs`).
-- Android backup rules in CitrusRemote explicitly exclude credentials from Google Cloud backups and device-to-device transfers.
-- Credentials remain on your device until you unpair the device or clear app data.
+When pairing with an Apple TV, authentication credentials are generated:
+- Credentials are saved in private Android app storage (`AppleTVPrefs`) and used to reconnect to that Apple TV.
+- CitrusRemote's Android backup rules exclude `AppleTVPrefs.xml` from cloud backups and device-to-device transfers.
+- Credentials remain in app storage until you unpair the device or clear app data.
 
 ## 4. Keyboard Input
 
 When using the keyboard input feature:
-- Text is transmitted directly over the encrypted local connection to the connected Apple TV.
-- Typed text and keystrokes are never logged, cached to disk, or sent to external servers.
+- CitrusRemote reads the focused text from Apple TV into the app so you can edit it. Text you type is sent directly to the selected Apple TV over the encrypted Companion connection. It may include logins or passwords.
+- CitrusRemote does not save keyboard text to disk or send it to ReggieSoft or a cloud service.
+- The Android keyboard app you choose also handles keystrokes according to its own privacy practices.
 
 ## 5. Open Source Transparency
 

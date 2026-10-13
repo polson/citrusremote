@@ -28,7 +28,7 @@ CitrusRemote is an Android remote application designed for Apple TV. It communic
 - **Privacy by Design**:
   - Zero analytics, telemetry, or advertising SDKs.
   - No user accounts or external servers required.
-  - Pairing credentials stay on your device and are excluded from cloud backups.
+  - Pairing credentials are exchanged with the selected Apple TV, saved in private app storage, and excluded from backups.
 
 ## Requirements
 

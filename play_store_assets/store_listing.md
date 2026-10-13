@@ -29,7 +29,7 @@ CitrusRemote puts user privacy first:
 • No accounts or registrations required.
 • No advertising banners or promotional popups.
 • No analytics or behavioral tracking SDKs.
-• Zero data collection: all pairing tokens stay private on your device and are excluded from cloud backups. Communication happens strictly within your local home network.
+• Local-only control: pairing data and remote commands are exchanged directly with the Apple TV you select. After pairing, Companion messages are encrypted. Pairing credentials are stored in private app storage and excluded from backups; CitrusRemote does not send them or keyboard text to ReggieSoft or a cloud service.
 
 REQUIREMENTS
 
@@ -44,3 +44,5 @@ CitrusRemote is built and maintained by ReggieSoft.
 • Privacy Policy: https://reggiesoft.com/citrusremote/privacy/
 • Support: support@reggiesoft.com
 ```
+
+---
